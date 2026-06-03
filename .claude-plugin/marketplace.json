@@ -1,0 +1,14 @@
+{
+  "name": "aiden",
+  "owner": {
+    "name": "AIDEN Platform",
+    "url": "https://clicktrackerx.com"
+  },
+  "plugins": [
+    {
+      "name": "aiden-tasks",
+      "source": "./",
+      "description": "Create/find/update your AIDEN tasks from Claude via the /aiden command + MCP tools (OAuth, no key). Optional per-branch session auto-logging (needs a per-user key)."
+    }
+  ]
+}

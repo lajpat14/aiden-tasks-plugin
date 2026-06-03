@@ -1,0 +1,5 @@
+# Nothing runtime/secret lives in this plugin repo. Ignore OS/editor cruft.
+.DS_Store
+Thumbs.db
+*.swp
+*~

@@ -1,0 +1,9 @@
+{
+  "name": "aiden-tasks",
+  "version": "1.0.0",
+  "description": "Create/find/update your AIDEN (clicktrackerx.com) tasks via the /aiden-tasks:aiden command + MCP tools (OAuth login, no key). Optional per-branch session auto-logging (needs a per-user key).",
+  "author": {
+    "name": "AIDEN Platform"
+  },
+  "homepage": "https://clicktrackerx.com"
+}
