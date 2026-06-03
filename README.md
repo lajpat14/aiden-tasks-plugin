@@ -12,15 +12,15 @@ optional automatic session logging.
   task logging. **Opt-in — these require a per-user key (see "Enable auto-logging"),
   because a shell hook can't perform the OAuth login the MCP tools use.**
 
-## Install (team, one-time)
+## Install (one-time)
 ```
-/plugin marketplace add <your-private-repo-url>     # e.g. git@github.com:yourorg/aiden-tasks-plugin.git
+/plugin marketplace add lajpat14/aiden-tasks-plugin
 /plugin install aiden-tasks@aiden
 /reload-plugins
 ```
 The first time the MCP tools talk to clicktrackerx.com, Claude walks you through
-an OAuth login (sign in once, approve). After that the `/aiden-tasks:aiden`
-command and tools work everywhere.
+an OAuth login (sign in once, approve) — you need a clicktrackerx.com account.
+After that the `/aiden-tasks:aiden` command and tools work everywhere.
 
 ## Enable auto-logging hooks (optional)
 The hooks only fire when a per-user key is present in your shell (OAuth does not
@@ -33,8 +33,11 @@ command + MCP tools work without this.
 
 ## Notes
 - **Requirements on your machine (for the hooks):** `git`, `curl`, `openssl`, `jq`.
-- **Private distribution:** internal plugin — point the marketplace at your
-  private repo; not published to the public Anthropic directory.
+- **Who can use it:** anyone — but actual task access requires logging in with a
+  **clicktrackerx.com account** (OAuth) or a per-user key. Installing the plugin
+  alone grants nothing.
+- **Security:** this repo contains no secrets — only config + a signing script
+  that reads YOUR locally-set env vars. The server enforces all auth.
 
 ## Repo layout
 ```
