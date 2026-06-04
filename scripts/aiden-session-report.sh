@@ -46,16 +46,43 @@ fi
 # Derive the git branch from the session's working directory.
 BRANCH="$(git -C "$CWD" branch --show-current 2>/dev/null || true)"
 
+# Read the per-repo binding written by the `/aiden` first-run picker, if present.
+# It binds this repo to one AIDEN task/project so heartbeats attach to it instead
+# of branch-auto-creating a fresh task. Contains only ids/names — no secrets.
+# Check the git repo root first, then the cwd.
+BIND_TASK_ID=""
+BIND_PROJECT_ID=""
+if command -v jq >/dev/null 2>&1; then
+  REPO_ROOT="$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null || true)"
+  PREV_DIR=""
+  for DIR in "$REPO_ROOT" "$CWD"; do
+    [[ -z "$DIR" || "$DIR" == "$PREV_DIR" ]] && continue
+    PREV_DIR="$DIR"
+    BIND_FILE="${DIR}/.aiden/task.json"
+    if [[ -f "$BIND_FILE" ]]; then
+      BIND_TASK_ID="$(jq -r '.task_id // empty' "$BIND_FILE" 2>/dev/null || true)"
+      BIND_PROJECT_ID="$(jq -r '.project_id // empty' "$BIND_FILE" 2>/dev/null || true)"
+      [[ -n "$BIND_TASK_ID" || -n "$BIND_PROJECT_ID" ]] && break
+    fi
+  done
+fi
+
 # Build the JSON body ONCE. The exact bytes are both signed and sent.
-# (Use jq to guarantee valid JSON + correct escaping.)
+# (Use jq to guarantee valid JSON + correct escaping.) Include the binding ids
+# only when present and numeric — the server pins them to the caller's org and
+# ignores anything cross-org, so an unbound repo keeps today's branch-auto-create.
 if command -v jq >/dev/null 2>&1; then
   BODY="$(jq -cn \
     --arg session_id "$SESSION_ID" \
     --arg git_branch "$BRANCH" \
     --arg cwd "$CWD" \
-    '{session_id: $session_id, git_branch: $git_branch, cwd: $cwd}')"
+    --arg task_id "$BIND_TASK_ID" \
+    --arg project_id "$BIND_PROJECT_ID" \
+    '{session_id: $session_id, git_branch: $git_branch, cwd: $cwd}
+      + (if ($task_id    | test("^[0-9]+$")) then {task_id:    ($task_id    | tonumber)} else {} end)
+      + (if ($project_id | test("^[0-9]+$")) then {project_id: ($project_id | tonumber)} else {} end)')"
 else
-  # Minimal fallback (branch/cwd only; no escaping of exotic chars).
+  # Minimal fallback (branch/cwd only; no escaping of exotic chars; no binding).
   BODY="{\"git_branch\":\"${BRANCH}\",\"cwd\":\"${CWD}\"}"
 fi
 
