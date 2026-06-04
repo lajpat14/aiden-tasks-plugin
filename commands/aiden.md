@@ -8,11 +8,17 @@ it — pick the one that works in this session:
 - **MCP tools** (preferred when available): `aiden-task-list`, `aiden-task-find`,
   `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
   `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
-  `aiden-project-create`, `aiden-project-assign-team`, `aiden-user-list`,
-  `aiden-task-assign`, `aiden-team-list`, `aiden-team-members`,
-  `aiden-team-create`, `aiden-team-add-member`. These need a one-time OAuth
-  login in the browser. (`aiden-team-list` gives counts; `aiden-team-members`
-  lists who is actually on a team — id/name/email/role.)
+  `aiden-project-get`, `aiden-project-create`, `aiden-project-assign-team`,
+  `aiden-user-list`, `aiden-task-assign`, `aiden-team-list`,
+  `aiden-team-members`, `aiden-team-create`, `aiden-team-add-member`. These need
+  a one-time OAuth login in the browser. (`aiden-project-list` gives minimal
+  fields; `aiden-project-get` returns one project's full state — owner, assigned
+  team + members, status, progress, task counts. `aiden-team-list` gives counts;
+  `aiden-team-members` lists who is on a team.)
+  Note on "assigning a project": a project's **owner** is one user, set when it's
+  created (the creating session's user). `aiden-task-assign` sets per-task
+  assignees; `aiden-project-assign-team` assigns the whole project to a team — use
+  that to make a project read as assigned at the project level.
 - **Key CLI** (browser-free — REQUIRED on remote sessions): the OAuth login uses a
   `http://localhost:.../callback` redirect that a **remote session can't capture**,
   so the MCP tools never finish auth there. In that case use the bundled script
