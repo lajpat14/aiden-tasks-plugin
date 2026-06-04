@@ -9,8 +9,10 @@ it — pick the one that works in this session:
   `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
   `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
   `aiden-project-create`, `aiden-project-assign-team`, `aiden-user-list`,
-  `aiden-task-assign`, `aiden-team-list`, `aiden-team-create`,
-  `aiden-team-add-member`. These need a one-time OAuth login in the browser.
+  `aiden-task-assign`, `aiden-team-list`, `aiden-team-members`,
+  `aiden-team-create`, `aiden-team-add-member`. These need a one-time OAuth
+  login in the browser. (`aiden-team-list` gives counts; `aiden-team-members`
+  lists who is actually on a team — id/name/email/role.)
 - **Key CLI** (browser-free — REQUIRED on remote sessions): the OAuth login uses a
   `http://localhost:.../callback` redirect that a **remote session can't capture**,
   so the MCP tools never finish auth there. In that case use the bundled script
