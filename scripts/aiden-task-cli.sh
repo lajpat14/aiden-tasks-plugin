@@ -20,6 +20,12 @@
 #   aiden-task-cli.sh tasks-update <task_id> [--status S] [--progress N] \
 #                                  [--current "..."] [--next "..."] \
 #                                  [--note "..."] [--project-id ID]
+#   aiden-task-cli.sh users-list [search]                       # surface org users
+#   aiden-task-cli.sh assign <user_id> --task <id> | --project <id>   # share/assign
+#   aiden-task-cli.sh teams-list
+#   aiden-task-cli.sh team-create <name> [description]
+#   aiden-task-cli.sh team-add-member <team_id> <user_id> [role]
+#   aiden-task-cli.sh project-assign-team <project_id> <team_id|0>
 #
 # Prints the JSON response to stdout. Exits non-zero on transport/HTTP error so
 # the caller (the /aiden command) can react. Requires: curl, openssl, jq.
@@ -140,7 +146,83 @@ case "$CMD" in
         + (if $pid!="" then {project_id:($pid|tonumber)} else {} end)')"
     signed_request POST /api/agent/tasks/update "$BODY"
     ;;
+
+  users-list)
+    # GET with optional ?q= (query not part of the signed path — server signs path()).
+    Q="${1:-}"
+    ts="$(date +%s)"
+    sig="$(printf '%s' "GET/api/agent/users${ts}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}')"
+    url="${BASE_URL%/}/api/agent/users"
+    [[ -n "$Q" ]] && url="${url}?q=$(jq -rn --arg q "$Q" '$q|@uri')"
+    resp="$(curl -sS -m 20 -w '\n%{http_code}' -X GET "$url" \
+      -H "Accept: application/json" -H "X-Aiden-Key: ${PREFIX}" -H "X-Timestamp: ${ts}" -H "X-Signature: ${sig}")" \
+      || die "request failed (network)"
+    code="$(printf '%s' "$resp" | tail -n1)"; printf '%s\n' "$(printf '%s' "$resp" | sed '$d')"
+    [[ "$code" =~ ^2 ]] || { echo "HTTP $code" >&2; exit 1; }
+    ;;
+
+  assign)
+    # assign <user_id> (--task <id> | --project <id>)
+    [[ $# -ge 1 ]] || die "usage: assign <user_id> --task <id> | --project <id>"
+    UID_="$1"; shift; require_numeric "$UID_" "user_id"
+    TID=""; PID=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --task)    [[ $# -ge 2 ]] || die "--task needs a value"; TID="$2"; shift 2;;
+        --project) [[ $# -ge 2 ]] || die "--project needs a value"; PID="$2"; shift 2;;
+        *) die "unknown flag '$1' for assign";;
+      esac
+    done
+    [[ -n "$TID" ]] && require_numeric "$TID" "--task"
+    [[ -n "$PID" ]] && require_numeric "$PID" "--project"
+    [[ -n "$TID" || -n "$PID" ]] || die "provide --task <id> or --project <id>"
+    BODY="$(jq -cn --arg u "$UID_" --arg t "$TID" --arg p "$PID" \
+      '{user_id:($u|tonumber)}
+        + (if $t!="" then {task_id:($t|tonumber)} else {} end)
+        + (if $p!="" then {project_id:($p|tonumber)} else {} end)')"
+    signed_request POST /api/agent/assign "$BODY"
+    ;;
+
+  teams-list)
+    ts="$(date +%s)"
+    sig="$(printf '%s' "GET/api/agent/teams${ts}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}')"
+    resp="$(curl -sS -m 20 -w '\n%{http_code}' -X GET "${BASE_URL%/}/api/agent/teams" \
+      -H "Accept: application/json" -H "X-Aiden-Key: ${PREFIX}" -H "X-Timestamp: ${ts}" -H "X-Signature: ${sig}")" \
+      || die "request failed (network)"
+    code="$(printf '%s' "$resp" | tail -n1)"; printf '%s\n' "$(printf '%s' "$resp" | sed '$d')"
+    [[ "$code" =~ ^2 ]] || { echo "HTTP $code" >&2; exit 1; }
+    ;;
+
+  team-create)
+    [[ $# -ge 1 && -n "${1:-}" ]] || die "name required: team-create <name> [description]"
+    NAME="$1"; DESC="${2:-}"
+    BODY="$(jq -cn --arg n "$NAME" --arg d "$DESC" '{name:$n} + (if $d!="" then {description:$d} else {} end)')"
+    signed_request POST /api/agent/teams "$BODY"
+    ;;
+
+  team-add-member)
+    # team-add-member <team_id> <user_id> [role]
+    [[ $# -ge 2 ]] || die "usage: team-add-member <team_id> <user_id> [role]"
+    TEAM="$1"; MUID="$2"; ROLE="${3:-}"
+    require_numeric "$TEAM" "team_id"; require_numeric "$MUID" "user_id"
+    BODY="$(jq -cn --arg u "$MUID" --arg r "$ROLE" '{user_id:($u|tonumber)} + (if $r!="" then {role:$r} else {} end)')"
+    signed_request POST "/api/agent/teams/${TEAM}/members" "$BODY"
+    ;;
+
+  project-assign-team)
+    # project-assign-team <project_id> <team_id|0>
+    [[ $# -ge 2 ]] || die "usage: project-assign-team <project_id> <team_id (0 to unassign)>"
+    PROJ="$1"; TEAM="$2"
+    require_numeric "$PROJ" "project_id"; require_numeric "$TEAM" "team_id"
+    if [[ "$TEAM" == "0" ]]; then
+      BODY='{"team_id":null}'
+    else
+      BODY="$(jq -cn --arg t "$TEAM" '{team_id:($t|tonumber)}')"
+    fi
+    signed_request PATCH "/api/agent/projects/${PROJ}" "$BODY"
+    ;;
+
   *)
-    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update)"
+    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team)"
     ;;
 esac

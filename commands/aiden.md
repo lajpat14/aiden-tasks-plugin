@@ -8,7 +8,9 @@ it — pick the one that works in this session:
 - **MCP tools** (preferred when available): `aiden-task-list`, `aiden-task-find`,
   `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
   `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
-  `aiden-project-create`. These need a one-time OAuth login in the browser.
+  `aiden-project-create`, `aiden-project-assign-team`, `aiden-user-list`,
+  `aiden-task-assign`, `aiden-team-list`, `aiden-team-create`,
+  `aiden-team-add-member`. These need a one-time OAuth login in the browser.
 - **Key CLI** (browser-free — REQUIRED on remote sessions): the OAuth login uses a
   `http://localhost:.../callback` redirect that a **remote session can't capture**,
   so the MCP tools never finish auth there. In that case use the bundled script
@@ -32,10 +34,32 @@ SH="${CLAUDE_PLUGIN_ROOT}/scripts/aiden-task-cli.sh"
 "$SH" tasks-create "<title>" "[project_id]" "[summary]"
 "$SH" tasks-update <task_id> --status in_progress --progress 30 \
       --current "..." --next "..." --note "..." --project-id <id>
+"$SH" users-list "<search>"                       # -> {data:{users:[{id,name,email}]}}
+"$SH" assign <user_id> --task <id>                # share/assign one task
+"$SH" assign <user_id> --project <id>             # assign all open tasks of a project
+"$SH" teams-list                                  # -> {data:{teams:[{id,name,members_count}]}}
+"$SH" team-create "<name>" "[description]"
+"$SH" team-add-member <team_id> <user_id> [role]  # role: member|lead|manager
+"$SH" project-assign-team <project_id> <team_id>  # team_id 0 to unassign
 ```
 Use these in place of the matching `aiden-*` MCP tool wherever the steps below say
 to call one. (There is no CLI equivalent of `aiden-task-by-branch`; on the CLI
 path, skip the branch-reconcile step and rely on `tasks-find` instead.)
+
+### Sharing / assigning to a registered user
+When the user says "share <project/task> with <name>" or "assign … to <name>":
+1. Resolve the name → call `aiden-user-list` / `users-list "<name>"`.
+2. If 0 matches, tell the user; if >1, **list them and ask which** — never guess.
+3. **Confirm the chosen user** (name + email) with the human before assigning.
+4. Assign: `aiden-task-assign` (MCP) / `assign <user_id> --task|--project` (CLI).
+5. Report back who was assigned to what. (The assignee sees it in their My Work +
+   activity; external Slack/WhatsApp/Email pings are not sent by this command.)
+
+### Teams
+- "create a team <name>" → `team-create`; "add <name> to team <T>" → resolve the
+  user (users-list), then `team-add-member <team_id> <user_id>`.
+- "put project <P> under team <T>" → `team-list` to get the id, then
+  `project-assign-team <project_id> <team_id>`.
 
 Request: $ARGUMENTS
 

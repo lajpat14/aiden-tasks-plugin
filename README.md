@@ -61,6 +61,18 @@ on task create/update) on the MCP path, or the matching `projects-list` /
 `projects-create` / `tasks-*` subcommands of `scripts/aiden-task-cli.sh` on the
 key path — `/aiden` uses whichever your session has.
 
+## Sharing, assignment & teams
+From chat you can also surface org users and assign/share work, and manage teams:
+- **Share/assign:** "share project X with Priya" → the command resolves the user
+  (`aiden-user-list` / `users-list`), confirms, and assigns
+  (`aiden-task-assign` / `assign <user_id> --task|--project`). The assignee sees it
+  in their My Work + activity (no external channel ping from this command).
+- **Teams:** create a team, add members, and put a project under a team
+  (`aiden-team-create`, `aiden-team-add-member`, `aiden-project-assign-team`, or the
+  matching `team-create` / `team-add-member` / `project-assign-team` CLI subcommands).
+All org-scoped and permission-checked server-side (you need the relevant
+tasks/teams permissions; everything is confined to your organization).
+
 ## Enable auto-logging hooks (optional)
 The hooks only fire when a per-user key is present in your shell (OAuth does not
 feed them). To turn them on:
