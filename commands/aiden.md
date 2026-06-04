@@ -77,10 +77,13 @@ This repo can be **bound** to one AIDEN project + task via a per-repo file
 
 2. **First-run setup (no binding yet):**
    a. **Reconcile first:** get the current git branch (`git branch --show-current`)
-      and call `aiden-task-by-branch` with it. The session hooks may have already
-      auto-created a `"Session: <branch>"` task for this branch — if `found:true`,
-      **reuse that task id** (don't create a duplicate); you'll just bind it to a
-      project and optionally retitle it below.
+      and the origin remote (`git config --get remote.origin.url`), then call
+      `aiden-task-by-branch` with **both** `git_branch` and `git_remote`. Passing
+      the remote scopes the lookup to THIS repo, so a common branch name like
+      `main` in another repo never resolves to the wrong task. The session hooks
+      may have already auto-created a `"Session: <branch>"` task for this branch —
+      if `found:true`, **reuse that task id** (don't create a duplicate); you'll
+      just bind it to a project and optionally retitle it below.
    b. Call `aiden-project-list` to fetch the user's existing projects.
    c. **Show the user the list** (name + id + open task count) and ask them to
       either **pick an existing project** or **create a new one**. Wait for their
@@ -91,9 +94,12 @@ This repo can be **bound** to one AIDEN project + task via a per-repo file
       - If step (a) found an existing branch task → `aiden-task-update` it with
         `project_id` set to the chosen project (and a clearer title via the
         request if appropriate).
-      - Otherwise → `aiden-task-create` with `project_id` set and `git_branch` set
-        to the current branch (so future heartbeats attach). If the user names an
-        existing task instead, `aiden-task-find` it and reuse its id.
+      - Otherwise → `aiden-task-create` with `project_id` set, `git_branch` set
+        to the current branch, and `git_remote` set to the origin URL (so future
+        heartbeats attach to the right repo's task). If the user names an existing
+        task instead, `aiden-task-find` it and reuse its id. `aiden-task-find`
+        matches all the words in your query across title + description, so a
+        partial phrase like "attribution alert" still finds the task.
    f. **Write the binding** to `.aiden/task.json` (create the `.aiden/` dir if
       needed) with this exact shape (use the REAL project id and task id — they
       are different numbers):

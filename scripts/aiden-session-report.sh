@@ -46,6 +46,11 @@ fi
 # Derive the git branch from the session's working directory.
 BRANCH="$(git -C "$CWD" branch --show-current 2>/dev/null || true)"
 
+# Derive the origin remote URL. The server scopes branch→task resolution by
+# (repo, branch) so the same branch name (e.g. "main") in two different repos
+# can't collide onto one task. Falls back to cwd server-side when absent.
+GIT_REMOTE="$(git -C "$CWD" config --get remote.origin.url 2>/dev/null || true)"
+
 # Read the per-repo binding written by the `/aiden` first-run picker, if present.
 # It binds this repo to one AIDEN task/project so heartbeats attach to it instead
 # of branch-auto-creating a fresh task. Contains only ids/names — no secrets.
@@ -75,15 +80,19 @@ if command -v jq >/dev/null 2>&1; then
   BODY="$(jq -cn \
     --arg session_id "$SESSION_ID" \
     --arg git_branch "$BRANCH" \
+    --arg git_remote "$GIT_REMOTE" \
     --arg cwd "$CWD" \
     --arg task_id "$BIND_TASK_ID" \
     --arg project_id "$BIND_PROJECT_ID" \
-    '{session_id: $session_id, git_branch: $git_branch, cwd: $cwd}
+    '{session_id: $session_id, git_branch: $git_branch, git_remote: $git_remote, cwd: $cwd}
       + (if ($task_id    | test("^[0-9]+$")) then {task_id:    ($task_id    | tonumber)} else {} end)
       + (if ($project_id | test("^[0-9]+$")) then {project_id: ($project_id | tonumber)} else {} end)')"
 else
-  # Minimal fallback (branch/cwd only; no escaping of exotic chars; no binding).
-  BODY="{\"git_branch\":\"${BRANCH}\",\"cwd\":\"${CWD}\"}"
+  # Minimal fallback when jq is unavailable (no binding ids sent). Escape backslash
+  # and double-quote so a path/remote containing them still yields valid JSON
+  # instead of a malformed body the server would reject.
+  json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+  BODY="{\"git_branch\":\"$(json_escape "$BRANCH")\",\"git_remote\":\"$(json_escape "$GIT_REMOTE")\",\"cwd\":\"$(json_escape "$CWD")\"}"
 fi
 
 PATH_PART="/api/agent/sessions/${ENDPOINT}"
