@@ -4,13 +4,14 @@ Talk to Claude to create/find/update your AIDEN (clicktrackerx.com) tasks, with
 optional automatic session logging.
 
 ## What it installs
-- **MCP server** `aiden-tasks` → the `aiden-task-*` tools (list/find/create/update/
-  status), connected to `https://clicktrackerx.com/mcp/aiden-tasks` over **OAuth**
-  (you log in once in Claude; no key to copy). **Works right after install + login.**
-- **`/aiden-tasks:aiden`** slash command → "create/find/update my tasks".
+- **`/aiden-tasks:aiden`** slash command → "create/find/update my tasks". This is
+  the main entry point and it works on **every** session type (see auth below).
+- **MCP server** `aiden-tasks` → the `aiden-task-*` / `aiden-project-*` tools,
+  served at `https://clicktrackerx.com/mcp/aiden-tasks`. **See the auth note below —
+  the OAuth/browser path only works when the server is registered with
+  `claude mcp add`, not from the plugin bundle.**
 - **Session hooks** (SessionStart / Stop / SessionEnd) for automatic per-branch
-  task logging. **Opt-in — these require a per-user key (see "Enable auto-logging"),
-  because a shell hook can't perform the OAuth login the MCP tools use.**
+  task logging. Opt-in — require a per-user key (see "Auth").
 
 ## Install (one-time)
 ```
@@ -18,9 +19,33 @@ optional automatic session logging.
 /plugin install aiden-tasks@aiden
 /reload-plugins
 ```
-The first time the MCP tools talk to clicktrackerx.com, Claude walks you through
-an OAuth login (sign in once, approve) — you need a clicktrackerx.com account.
-After that the `/aiden-tasks:aiden` command and tools work everywhere.
+> **Updating later:** a `git push` to the marketplace repo does NOT auto-update an
+> installed session. In each session run `/plugin marketplace update aiden` then
+> `/plugin update aiden-tasks@aiden` (or uninstall + reinstall), and **fully restart
+> Claude Code** (`/reload-plugins` reconnects the transport but does not re-pull).
+
+## Auth — pick the path for your session
+Claude Code does **not** drive the OAuth browser flow for an OAuth HTTP MCP server
+that is bundled in a *plugin's* `.mcp.json` (see anthropics/claude-code#36307) — so
+the `aiden-task-*` tools may show up empty/absent if you rely on the plugin bundle
+alone. Use one of these instead:
+
+### A) Local sessions — register the server yourself (browser OAuth works)
+```
+claude mcp add --transport http aiden-tasks https://clicktrackerx.com/mcp/aiden-tasks
+```
+Then in a session: `/mcp` → **aiden-tasks** → **Authenticate** → sign in once. The
+tools then list and work. (This is the same URL the plugin points at; registering it
+via `claude mcp add` is what makes Claude Code run the OAuth flow.)
+
+### B) Remote sessions, or no browser — per-user key (no OAuth, no loopback)
+A remote session can't capture the OAuth `localhost` callback, so use the key path:
+1. clicktrackerx.com → **Profile → Security → Claude Session Key → Generate**.
+2. Export in your shell: `AIDEN_AGENT_BASE_URL`, `AIDEN_AGENT_KEY_PREFIX`,
+   `AIDEN_AGENT_HMAC_SECRET`.
+3. Run `/aiden-tasks:aiden` — it uses the bundled `scripts/aiden-task-cli.sh`
+   (browser-free, HMAC-signed) for project/task list/create/update. The session
+   hooks also use this key. **This path needs no MCP tools and works everywhere.**
 
 ## Project/task awareness (per-repo binding)
 Run `/aiden-tasks:aiden` in a repo. The **first time** (no binding yet) it shows
@@ -31,8 +56,10 @@ every `/aiden` call and every session heartbeat auto-attaches to that task/proje
 — no re-picking. `.aiden/` is local state; add it to your repo's `.gitignore`
 (the command does this for you). Delete `.aiden/task.json` to re-bind.
 
-New MCP tools backing this: `aiden-project-list`, `aiden-project-create`, and a
-`project_id` option on `aiden-task-create` / `aiden-task-update`.
+Backing this: `aiden-project-list` / `aiden-project-create` (+ a `project_id` option
+on task create/update) on the MCP path, or the matching `projects-list` /
+`projects-create` / `tasks-*` subcommands of `scripts/aiden-task-cli.sh` on the
+key path — `/aiden` uses whichever your session has.
 
 ## Enable auto-logging hooks (optional)
 The hooks only fire when a per-user key is present in your shell (OAuth does not

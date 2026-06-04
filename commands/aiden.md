@@ -2,10 +2,40 @@
 description: Create, find, or update your AIDEN (clicktrackerx.com) tasks
 ---
 
-You manage the user's tasks in the AIDEN task system via the `aiden-tasks` MCP
-server. Tools: `aiden-task-list`, `aiden-task-find`, `aiden-task-by-branch`,
-`aiden-task-create`, `aiden-task-update`, `aiden-task-status`,
-`aiden-session-link`, `aiden-project-list`, `aiden-project-create`.
+You manage the user's tasks in the AIDEN task system. There are TWO ways to call
+it — pick the one that works in this session:
+
+- **MCP tools** (preferred when available): `aiden-task-list`, `aiden-task-find`,
+  `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
+  `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
+  `aiden-project-create`. These need a one-time OAuth login in the browser.
+- **Key CLI** (browser-free — REQUIRED on remote sessions): the OAuth login uses a
+  `http://localhost:.../callback` redirect that a **remote session can't capture**,
+  so the MCP tools never finish auth there. In that case use the bundled script
+  `"${CLAUDE_PLUGIN_ROOT}"/scripts/aiden-task-cli.sh`, which signs each request
+  with the user's per-user key (no browser). It needs `AIDEN_AGENT_BASE_URL`,
+  `AIDEN_AGENT_KEY_PREFIX`, `AIDEN_AGENT_HMAC_SECRET` in the environment (generate
+  at clicktrackerx.com → Profile → Security → Claude Session Key).
+
+**Decide the path first:** if the `aiden-task-*` MCP tools are available to you,
+use them. Otherwise (they're absent, or a previous attempt to authenticate failed,
+or this is a remote session), use the Key CLI. If neither the MCP tools nor the
+`AIDEN_AGENT_*` env vars are present, tell the user to set the key env vars and
+stop — do not attempt the OAuth flow on a remote session (it cannot complete).
+
+### Key CLI command map (each prints JSON to stdout)
+```
+SH="${CLAUDE_PLUGIN_ROOT}/scripts/aiden-task-cli.sh"
+"$SH" projects-list [--include-completed]        # -> {data:{projects:[{id,name,status,tasks_count}]}}
+"$SH" projects-create "<name>" "[description]"   # -> {data:{id,name,...}}
+"$SH" tasks-find "<query>"                        # -> {data:{tasks:[{id,title,...}]}}
+"$SH" tasks-create "<title>" "[project_id]" "[summary]"
+"$SH" tasks-update <task_id> --status in_progress --progress 30 \
+      --current "..." --next "..." --note "..." --project-id <id>
+```
+Use these in place of the matching `aiden-*` MCP tool wherever the steps below say
+to call one. (There is no CLI equivalent of `aiden-task-by-branch`; on the CLI
+path, skip the branch-reconcile step and rely on `tasks-find` instead.)
 
 Request: $ARGUMENTS
 
