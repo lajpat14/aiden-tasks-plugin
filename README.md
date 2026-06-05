@@ -73,6 +73,32 @@ From chat you can also surface org users and assign/share work, and manage teams
 All org-scoped and permission-checked server-side (you need the relevant
 tasks/teams permissions; everything is confined to your organization).
 
+## Vault — task/project credentials (optional)
+Pull a credential from your AIDEN vault and apply it to a coding-session job without
+copy-pasting it or leaving it inline.
+
+- **`/aiden-tasks:aiden-vault`** → resolves the bound **project's vault**, lists its
+  items (masked — no secrets), reveals the one you need, and applies it safely:
+  - **git push** via git's in-memory credential cache (token never in the URL,
+    `.git/config`, or reflog);
+  - **SSH deploy key** written to a gitignored `0600` file and used via
+    `GIT_SSH_COMMAND` for one push/clone;
+  - **ephemeral env / `.aiden/.env.local`** (under the gitignored `.aiden/` tree, `0600`
+    — never `.env`, never a repo-root `.env.local`);
+  - or plain **read-only** reveal.
+- On the key path, the same three reads are available as CLI subcommands:
+  `scripts/aiden-task-cli.sh vault-list` / `vault-items <vault_id>` /
+  `vault-get <item_id>`. On the MCP path: `aiden-vault-list` / `aiden-vault-items` /
+  `aiden-vault-get`.
+- **Access is enforced server-side**: you need `vault.agent.access`, and `vault-get`
+  additionally needs `vault.secrets.reveal`. Every reveal is audited and throttled.
+  A vault item is reachable only if it's in your **personal**, a **shared team**, or
+  your bound **project** vault.
+- The command can remember *which item a repo uses* by adding a **non-secret** pointer
+  (`vault_id` + `item_id` + label) to `.aiden/task.json` — ids/labels only, never the
+  secret. A `SessionEnd` cleanup hook removes any temporary key file / `.aiden/.env.local` and
+  flushes the credential cache.
+
 ## Enable auto-logging hooks (optional)
 The hooks only fire when a per-user key is present in your shell (OAuth does not
 feed them). To turn them on:
@@ -96,9 +122,12 @@ command + MCP tools work without this.
 ```
 .claude-plugin/plugin.json        # plugin manifest
 .claude-plugin/marketplace.json   # marketplace catalog (this repo)
-hooks/hooks.json                  # session hooks
+hooks/hooks.json                  # session hooks (SessionStart/Stop/SessionEnd)
 scripts/aiden-session-report.sh   # the hook implementation (binding-aware)
+scripts/aiden-task-cli.sh         # browser-free HMAC CLI (tasks + vault subcommands)
+scripts/aiden-vault-cleanup.sh    # SessionEnd: removes ephemeral key files / cred cache
 commands/aiden.md                 # /aiden slash command (project/task picker)
+commands/aiden-vault.md           # /aiden-vault slash command (fetch + apply a credential)
 .mcp.json                         # the aiden-tasks MCP connector (OAuth)
 ```
 
@@ -112,7 +141,15 @@ The `/aiden` picker writes the binding into the repo you're working in:
   "task_id": 1104561,
   "task_title": "Make the plugin project/task-aware",
   "branch": "feat/foo",
-  "bound_at": "2026-06-05T12:00:00Z"
+  "bound_at": "2026-06-05T12:00:00Z",
+  "vault": {
+    "vault_id": 12,
+    "items": [
+      { "item_id": 1234, "label": "git-push", "purpose": "git_push" }
+    ]
+  }
 }
 ```
-Local state only — gitignore it; it holds ids/names, never a key or secret.
+Local state only — gitignore it; it holds ids/names (and optional vault item
+**pointers**), never a key or secret. The optional `vault` block is written by
+`/aiden-vault` so a repeat run skips the picker; it stores item **ids + labels only**.

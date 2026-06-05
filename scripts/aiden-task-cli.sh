@@ -26,6 +26,14 @@
 #   aiden-task-cli.sh team-create <name> [description]
 #   aiden-task-cli.sh team-add-member <team_id> <user_id> [role]
 #   aiden-task-cli.sh project-assign-team <project_id> <team_id|0>
+#   aiden-task-cli.sh vault-list                       # accessible vaults (+project_id)
+#   aiden-task-cli.sh vault-items <vault_id>           # masked items (NO secrets)
+#   aiden-task-cli.sh vault-get <item_id>              # DECRYPTED secret (audited)
+#
+# The vault-* commands hit /api/agent/vault (gated server-side by
+# vault.agent.access; vault-get additionally needs vault.secrets.reveal and is
+# audited + throttled). vault-get prints the secret to stdout — the caller is
+# responsible for handling it safely (never log it, never commit it).
 #
 # Prints the JSON response to stdout. Exits non-zero on transport/HTTP error so
 # the caller (the /aiden command) can react. Requires: curl, openssl, jq.
@@ -222,7 +230,33 @@ case "$CMD" in
     signed_request PATCH "/api/agent/projects/${PROJ}" "$BODY"
     ;;
 
+  vault-list)
+    # GET, no body — mirror teams-list. Returns {success,data:[{id,name,type,project_id,items_count}]}.
+    ts="$(date +%s)"
+    sig="$(printf '%s' "GET/api/agent/vault${ts}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}')"
+    resp="$(curl -sS -m 20 -w '\n%{http_code}' -X GET "${BASE_URL%/}/api/agent/vault" \
+      -H "Accept: application/json" -H "X-Aiden-Key: ${PREFIX}" -H "X-Timestamp: ${ts}" -H "X-Signature: ${sig}")" \
+      || die "request failed (network)"
+    code="$(printf '%s' "$resp" | tail -n1)"; printf '%s\n' "$(printf '%s' "$resp" | sed '$d')"
+    [[ "$code" =~ ^2 ]] || { echo "HTTP $code" >&2; exit 1; }
+    ;;
+
+  vault-items)
+    # vault-items <vault_id> — masked item list (NO secrets). GET, empty body.
+    [[ $# -ge 1 && -n "${1:-}" ]] || die "vault_id required: vault-items <vault_id>"
+    require_numeric "$1" "vault_id"
+    signed_request GET "/api/agent/vault/${1}/items" ""
+    ;;
+
+  vault-get)
+    # vault-get <item_id> — DECRYPTED secret (audited, gated vault.secrets.reveal,
+    # throttled 30/min server-side). The secret is in data.secret_fields. GET, empty body.
+    [[ $# -ge 1 && -n "${1:-}" ]] || die "item_id required: vault-get <item_id>"
+    require_numeric "$1" "item_id"
+    signed_request GET "/api/agent/vault/items/${1}" ""
+    ;;
+
   *)
-    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team)"
+    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|vault-list|vault-items|vault-get)"
     ;;
 esac

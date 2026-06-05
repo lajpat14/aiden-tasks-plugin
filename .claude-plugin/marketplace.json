@@ -8,7 +8,7 @@
     {
       "name": "aiden-tasks",
       "source": "./",
-      "description": "Create/find/update your AIDEN tasks from Claude via the /aiden command + MCP tools (OAuth, no key). Optional per-branch session auto-logging (needs a per-user key)."
+      "description": "Create/find/update your AIDEN tasks from Claude via the /aiden-tasks:aiden command + MCP tools (OAuth, no key). Plus /aiden-tasks:aiden-vault to pull a task/project credential from your AIDEN vault and apply it safely (git push, deploy key, env). Optional per-branch session auto-logging (needs a per-user key)."
     }
   ]
 }

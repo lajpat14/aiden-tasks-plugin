@@ -29,6 +29,10 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/aiden-session-report.sh end",
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/aiden-vault-cleanup.sh"
           }
         ]
       }
