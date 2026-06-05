@@ -1,6 +1,6 @@
 {
   "name": "aiden-tasks",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Create/find/update your AIDEN (clicktrackerx.com) tasks via the /aiden-tasks:aiden command + MCP tools (OAuth login, no key). Plus /aiden-tasks:aiden-vault for task/project credentials, and /aiden-tasks:aiden-assets to manage project/user/task assets (files, folders, versions, approval) and project contacts. Optional per-branch session auto-logging (needs a per-user key).",
   "author": {
     "name": "AIDEN Platform"

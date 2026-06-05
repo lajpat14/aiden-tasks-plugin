@@ -78,6 +78,39 @@ signed_request() {
   [[ "$code" =~ ^2 ]] || { echo "HTTP $code" >&2; exit 1; }
 }
 
+# signed_get PATH QUERY  → GET that signs the BARE path (no query string) and
+# appends QUERY only to the URL. The server signs request->path(), which strips
+# the query string, so a query string must NOT be part of the signed payload
+# (folding it in causes a 401). QUERY may be empty or start with '?'.
+signed_get() {
+  local path="$1" query="${2:-}"
+  local ts sig resp code
+  ts="$(date +%s)"
+  sig="$(printf '%s' "GET${path}${ts}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}')"
+
+  resp="$(curl -sS -m 20 -w '\n%{http_code}' -X GET "${BASE_URL%/}${path}${query}" \
+    -H "Accept: application/json" \
+    -H "X-Aiden-Key: ${PREFIX}" \
+    -H "X-Timestamp: ${ts}" \
+    -H "X-Signature: ${sig}")" || die "request failed (network)"
+  code="$(printf '%s' "$resp" | tail -n1)"
+  printf '%s\n' "$(printf '%s' "$resp" | sed '$d')"
+  [[ "$code" =~ ^2 ]] || { echo "HTTP $code" >&2; exit 1; }
+}
+
+# urlenc <string>  → percent-encode a query-param value (RFC 3986 unreserved kept).
+urlenc() {
+  local s="$1" out="" c i
+  for (( i=0; i<${#s}; i++ )); do
+    c="${s:$i:1}"
+    case "$c" in
+      [a-zA-Z0-9.~_-]) out+="$c" ;;
+      *) out+="$(printf '%%%02X' "'$c")" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
 CMD="${1:-}"; shift || true
 
 case "$CMD" in
@@ -264,30 +297,32 @@ case "$CMD" in
     # asset-list <project|user|task> <id> [--folder ID] [--category C] [--approval S]
     [[ $# -ge 2 ]] || die "usage: asset-list <project|user|task> <id> [--folder ID] [--category C] [--approval S]"
     ATYPE="$1"; AID="$2"; shift 2
-    BODY="$(jq -nc --arg t "$ATYPE" --argjson i "$AID" '{assetable_type:$t, assetable_id:$i}')"
+    require_numeric "$AID" "assetable_id"
+    # Filters go in the query string (the controller reads them from the query bag
+    # on a GET). The query string is NOT part of the signed path — see signed_get.
+    QS="?assetable_type=$(urlenc "$ATYPE")&assetable_id=${AID}"
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --folder)   BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$2" '.folder_id=$v')"; shift 2;;
-        --category) BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.category=$v')"; shift 2;;
-        --approval) BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.approval_status=$v')"; shift 2;;
+        --folder)   require_numeric "$2" "folder"; QS="${QS}&folder_id=${2}"; shift 2;;
+        --category) QS="${QS}&category=$(urlenc "$2")"; shift 2;;
+        --approval) QS="${QS}&approval_status=$(urlenc "$2")"; shift 2;;
         *) die "unknown flag: $1";;
       esac
     done
-    # GET with a JSON body: build a query string instead (GET bodies are unsigned-friendly but unconventional).
-    QS="?assetable_type=${ATYPE}&assetable_id=${AID}"
-    signed_request GET "/api/agent/assets${QS}" ""
+    signed_get "/api/agent/assets" "$QS"
     ;;
 
   asset-get)
     [[ $# -ge 1 ]] || die "usage: asset-get <asset_id>"
     require_numeric "$1" "asset_id"
-    signed_request GET "/api/agent/assets/${1}" ""
+    signed_get "/api/agent/assets/${1}"
     ;;
 
   asset-create)
     # asset-create <project|user|task> <id> <file_path|url> [--title T] [--category C] [--tags a,b] [--folder ID] [--desc D]
     [[ $# -ge 3 ]] || die "usage: asset-create <project|user|task> <id> <file_path|url> [--title T] [--category C] [--tags a,b] [--folder ID] [--desc D]"
     ATYPE="$1"; AID="$2"; SRC="$3"; shift 3
+    require_numeric "$AID" "assetable_id"
     SRCFILE="$SRC"; CLEANUP=""
     if [[ "$SRC" =~ ^https?:// ]]; then
       SRCFILE="$(mktemp)"; CLEANUP="$SRCFILE"
@@ -306,7 +341,7 @@ case "$CMD" in
         --title)    BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.title=$v')"; shift 2;;
         --category) BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.category=$v')"; shift 2;;
         --tags)     BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.tags=($v|split(","))')"; shift 2;;
-        --folder)   BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$2" '.folder_id=$v')"; shift 2;;
+        --folder)   require_numeric "$2" "folder"; BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$2" '.folder_id=$v')"; shift 2;;
         --desc)     BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.description=$v')"; shift 2;;
         *) die "unknown flag: $1";;
       esac
@@ -358,14 +393,15 @@ case "$CMD" in
 
   asset-folders)
     [[ $# -ge 2 ]] || die "usage: asset-folders <project|user|task> <id>"
-    QS="?assetable_type=${1}&assetable_id=${2}"
-    signed_request GET "/api/agent/assets/folders/list${QS}" ""
+    require_numeric "$2" "assetable_id"
+    signed_get "/api/agent/assets/folders/list" "?assetable_type=$(urlenc "$1")&assetable_id=${2}"
     ;;
 
   asset-create-folder)
     [[ $# -ge 3 ]] || die "usage: asset-create-folder <project|user|task> <id> <name> [--parent ID]"
+    require_numeric "$2" "assetable_id"
     BODY="$(jq -nc --arg t "$1" --argjson i "$2" --arg n "$3" '{assetable_type:$t, assetable_id:$i, name:$n}')"
-    if [[ "${4:-}" == "--parent" ]]; then BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$5" '.parent_id=$v')"; fi
+    if [[ "${4:-}" == "--parent" ]]; then require_numeric "$5" "parent"; BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$5" '.parent_id=$v')"; fi
     signed_request POST /api/agent/assets/folders "$BODY"
     ;;
 
@@ -374,9 +410,10 @@ case "$CMD" in
   # =====================================================================
   contact-list)
     [[ $# -ge 1 ]] || die "usage: contact-list <project_id> [type]"
+    require_numeric "$1" "project_id"
     QS="?project_id=${1}"
-    [[ -n "${2:-}" ]] && QS="${QS}&type=${2}"
-    signed_request GET "/api/agent/contacts${QS}" ""
+    [[ -n "${2:-}" ]] && QS="${QS}&type=$(urlenc "$2")"
+    signed_get "/api/agent/contacts" "$QS"
     ;;
 
   contact-create)
@@ -392,7 +429,7 @@ case "$CMD" in
         --email)   BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.email=$v')"; shift 2;;
         --phone)   BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.phone=$v')"; shift 2;;
         --type)    BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.type=$v')"; shift 2;;
-        --user-id) BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$2" '.user_id=$v')"; shift 2;;
+        --user-id) require_numeric "$2" "user-id"; BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$2" '.user_id=$v')"; shift 2;;
         --notes)   BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.notes=$v')"; shift 2;;
         *) die "unknown flag: $1";;
       esac
