@@ -6,8 +6,13 @@ optional automatic session logging.
 ## What it installs
 - **`/aiden-tasks:aiden`** slash command → "create/find/update my tasks". This is
   the main entry point and it works on **every** session type (see auth below).
-- **MCP server** `aiden-tasks` → the `aiden-task-*` / `aiden-project-*` tools,
-  served at `https://clicktrackerx.com/mcp/aiden-tasks`. **See the auth note below —
+- **`/aiden-tasks:aiden-vault`** → pull a task/project credential and apply it safely.
+- **`/aiden-tasks:aiden-assets`** → manage **assets** (files: plans, logos, contracts,
+  designs — with folders, versions, and an approval workflow) and **contacts**
+  (clients, vendors, stakeholders, internal) for a project / user / task.
+- **MCP server** `aiden-tasks` → the `aiden-task-*` / `aiden-project-*` / `aiden-vault-*`
+  / `aiden-asset-*` / `aiden-contact-*` tools, served at
+  `https://clicktrackerx.com/mcp/aiden-tasks`. **See the auth note below —
   the OAuth/browser path only works when the server is registered with
   `claude mcp add`, not from the plugin bundle.**
 - **Session hooks** (SessionStart / Stop / SessionEnd) for automatic per-branch
@@ -99,6 +104,34 @@ copy-pasting it or leaving it inline.
   secret. A `SessionEnd` cleanup hook removes any temporary key file / `.aiden/.env.local` and
   flushes the credential cache.
 
+## Assets & contacts (optional)
+A document/asset store and key-contacts directory for a project, user, or task —
+files (plans, logos, contracts, designs, PDFs) with **folders**, **versioning**, and
+an **approval workflow** (draft → in_review → approved → archived), plus contacts
+(clients, vendors, stakeholders, internal).
+
+- **`/aiden-tasks:aiden-assets`** drives both. `assetable_type` is `project`, `user`,
+  or `task`; `assetable_id` is its numeric id.
+- **Assets** — list / get / upload / version / approve / move / delete, and folders:
+  - MCP: `aiden-asset-list`, `aiden-asset-get`, `aiden-asset-create`,
+    `aiden-asset-add-version`, `aiden-asset-approve`, `aiden-asset-move`,
+    `aiden-asset-delete`, `aiden-asset-folders`, `aiden-asset-create-folder`.
+  - Key path (CLI): `asset-list`, `asset-get`, `asset-create`, `asset-version`,
+    `asset-approve`, `asset-download`, `asset-folders`, `asset-create-folder`.
+  - **File transfer:** the MCP `*-create` tools take inline **base64 (≤ 8 MB)**. For
+    larger files (up to 25 MB) use the CLI, which uploads from a **local path or a
+    URL** (`asset-create project 12 ./plan.pdf --category plan --tags q3,launch`,
+    or `… https://…/logo.png`). `asset-download <id> <out>` streams bytes back out.
+- **Contacts** — `aiden-contact-list` / `aiden-contact-create` (MCP) or
+  `contact-list <project_id> [type]` / `contact-create <project_id> <name> [--role …]
+  [--email …] [--type client|vendor|stakeholder|internal] [--user-id …]` (CLI).
+  `--user-id` links an internal contact to a platform user.
+- **Access is enforced server-side**: the MCP/agent path needs `asset.agent.access`,
+  and each action checks the matching `assets.*` / `contacts.*` permission. You can
+  only reach assets on a project/task you have access to, or your own user assets —
+  all confined to your organization. Downloads stream through an authorized route
+  (files are never on a public URL).
+
 ## Enable auto-logging hooks (optional)
 The hooks only fire when a per-user key is present in your shell (OAuth does not
 feed them). To turn them on:
@@ -109,9 +142,10 @@ Until set, the hooks silently no-op (they never disrupt a session). The `/aiden`
 command + MCP tools work without this.
 
 ## Notes
-- **Requirements on your machine (for the hooks):** `git`, `curl`, `openssl`, `jq`.
-  Without `jq`, per-repo binding is ignored and session hooks fall back to
-  per-branch auto-create (the `/aiden` command + MCP tools still work).
+- **Requirements on your machine (for the hooks + CLI):** `git`, `curl`, `openssl`,
+  `jq`, `base64`. Without `jq`, per-repo binding is ignored, session hooks fall back to
+  per-branch auto-create, and the asset/contact CLI subcommands (which build JSON
+  bodies) won't run — the `/aiden` command + MCP tools still work.
 - **Who can use it:** anyone — but actual task access requires logging in with a
   **clicktrackerx.com account** (OAuth) or a per-user key. Installing the plugin
   alone grants nothing.
@@ -124,10 +158,11 @@ command + MCP tools work without this.
 .claude-plugin/marketplace.json   # marketplace catalog (this repo)
 hooks/hooks.json                  # session hooks (SessionStart/Stop/SessionEnd)
 scripts/aiden-session-report.sh   # the hook implementation (binding-aware)
-scripts/aiden-task-cli.sh         # browser-free HMAC CLI (tasks + vault subcommands)
+scripts/aiden-task-cli.sh         # browser-free HMAC CLI (tasks + vault + asset/contact subcommands)
 scripts/aiden-vault-cleanup.sh    # SessionEnd: removes ephemeral key files / cred cache
 commands/aiden.md                 # /aiden slash command (project/task picker)
 commands/aiden-vault.md           # /aiden-vault slash command (fetch + apply a credential)
+commands/aiden-assets.md          # /aiden-assets slash command (assets DAM + project contacts)
 .mcp.json                         # the aiden-tasks MCP connector (OAuth)
 ```
 

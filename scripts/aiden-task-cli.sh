@@ -256,7 +256,151 @@ case "$CMD" in
     signed_request GET "/api/agent/vault/items/${1}" ""
     ;;
 
+  # =====================================================================
+  # Assets (DAM) — files attached to a project|user|task. Uploads send the
+  # file as base64 inside a JSON body (signed like every other command).
+  # =====================================================================
+  asset-list)
+    # asset-list <project|user|task> <id> [--folder ID] [--category C] [--approval S]
+    [[ $# -ge 2 ]] || die "usage: asset-list <project|user|task> <id> [--folder ID] [--category C] [--approval S]"
+    ATYPE="$1"; AID="$2"; shift 2
+    BODY="$(jq -nc --arg t "$ATYPE" --argjson i "$AID" '{assetable_type:$t, assetable_id:$i}')"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --folder)   BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$2" '.folder_id=$v')"; shift 2;;
+        --category) BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.category=$v')"; shift 2;;
+        --approval) BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.approval_status=$v')"; shift 2;;
+        *) die "unknown flag: $1";;
+      esac
+    done
+    # GET with a JSON body: build a query string instead (GET bodies are unsigned-friendly but unconventional).
+    QS="?assetable_type=${ATYPE}&assetable_id=${AID}"
+    signed_request GET "/api/agent/assets${QS}" ""
+    ;;
+
+  asset-get)
+    [[ $# -ge 1 ]] || die "usage: asset-get <asset_id>"
+    require_numeric "$1" "asset_id"
+    signed_request GET "/api/agent/assets/${1}" ""
+    ;;
+
+  asset-create)
+    # asset-create <project|user|task> <id> <file_path|url> [--title T] [--category C] [--tags a,b] [--folder ID] [--desc D]
+    [[ $# -ge 3 ]] || die "usage: asset-create <project|user|task> <id> <file_path|url> [--title T] [--category C] [--tags a,b] [--folder ID] [--desc D]"
+    ATYPE="$1"; AID="$2"; SRC="$3"; shift 3
+    SRCFILE="$SRC"; CLEANUP=""
+    if [[ "$SRC" =~ ^https?:// ]]; then
+      SRCFILE="$(mktemp)"; CLEANUP="$SRCFILE"
+      trap '[[ -n "$CLEANUP" ]] && rm -f "$CLEANUP"' EXIT
+      curl -sSL -m 60 "$SRC" -o "$SRCFILE" || die "failed to download $SRC"
+    fi
+    [[ -f "$SRCFILE" ]] || die "file not found: $SRC"
+    SIZE="$(stat -c%s "$SRCFILE" 2>/dev/null || stat -f%z "$SRCFILE")"
+    [[ "$SIZE" -le 26214400 ]] || die "file exceeds 25 MB limit ($SIZE bytes)"
+    FNAME="$(basename "$SRC")"
+    B64="$(base64 -w0 "$SRCFILE" 2>/dev/null || base64 "$SRCFILE" | tr -d '\n')"
+    BODY="$(jq -nc --arg t "$ATYPE" --argjson i "$AID" --arg f "$FNAME" --arg b "$B64" \
+      '{assetable_type:$t, assetable_id:$i, filename:$f, base64_content:$b}')"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --title)    BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.title=$v')"; shift 2;;
+        --category) BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.category=$v')"; shift 2;;
+        --tags)     BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.tags=($v|split(","))')"; shift 2;;
+        --folder)   BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$2" '.folder_id=$v')"; shift 2;;
+        --desc)     BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.description=$v')"; shift 2;;
+        *) die "unknown flag: $1";;
+      esac
+    done
+    signed_request POST /api/agent/assets "$BODY"
+    ;;
+
+  asset-version)
+    # asset-version <asset_id> <file_path|url> [--note N]
+    [[ $# -ge 2 ]] || die "usage: asset-version <asset_id> <file_path|url> [--note N]"
+    require_numeric "$1" "asset_id"
+    AIDV="$1"; SRC="$2"; shift 2
+    SRCFILE="$SRC"; CLEANUP=""
+    if [[ "$SRC" =~ ^https?:// ]]; then
+      SRCFILE="$(mktemp)"; CLEANUP="$SRCFILE"
+      trap '[[ -n "$CLEANUP" ]] && rm -f "$CLEANUP"' EXIT
+      curl -sSL -m 60 "$SRC" -o "$SRCFILE" || die "failed to download $SRC"
+    fi
+    [[ -f "$SRCFILE" ]] || die "file not found: $SRC"
+    SIZE="$(stat -c%s "$SRCFILE" 2>/dev/null || stat -f%z "$SRCFILE")"
+    [[ "$SIZE" -le 26214400 ]] || die "file exceeds 25 MB limit ($SIZE bytes)"
+    FNAME="$(basename "$SRC")"
+    B64="$(base64 -w0 "$SRCFILE" 2>/dev/null || base64 "$SRCFILE" | tr -d '\n')"
+    BODY="$(jq -nc --arg f "$FNAME" --arg b "$B64" '{filename:$f, base64_content:$b}')"
+    [[ "${1:-}" == "--note" ]] && BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.note=$v')"
+    signed_request POST "/api/agent/assets/${AIDV}/versions" "$BODY"
+    ;;
+
+  asset-approve)
+    [[ $# -ge 2 ]] || die "usage: asset-approve <asset_id> <draft|in_review|approved|archived>"
+    require_numeric "$1" "asset_id"
+    BODY="$(jq -nc --arg s "$2" '{status:$s}')"
+    signed_request POST "/api/agent/assets/${1}/approve" "$BODY"
+    ;;
+
+  asset-download)
+    # asset-download <asset_id> <out_path>
+    [[ $# -ge 2 ]] || die "usage: asset-download <asset_id> <out_path>"
+    require_numeric "$1" "asset_id"
+    AIDD="$1"; OUT="$2"
+    ts="$(date +%s)"
+    path="/api/agent/assets/${AIDD}/download"
+    sig="$(printf '%s' "GET${path}${ts}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}')"
+    code="$(curl -sS -m 60 -o "$OUT" -w '%{http_code}' -X GET "${BASE_URL%/}${path}" \
+      -H "X-Aiden-Key: ${PREFIX}" -H "X-Timestamp: ${ts}" -H "X-Signature: ${sig}")"
+    [[ "$code" =~ ^2 ]] || { rm -f "$OUT"; die "download failed (HTTP $code)"; }
+    echo "saved -> $OUT"
+    ;;
+
+  asset-folders)
+    [[ $# -ge 2 ]] || die "usage: asset-folders <project|user|task> <id>"
+    QS="?assetable_type=${1}&assetable_id=${2}"
+    signed_request GET "/api/agent/assets/folders/list${QS}" ""
+    ;;
+
+  asset-create-folder)
+    [[ $# -ge 3 ]] || die "usage: asset-create-folder <project|user|task> <id> <name> [--parent ID]"
+    BODY="$(jq -nc --arg t "$1" --argjson i "$2" --arg n "$3" '{assetable_type:$t, assetable_id:$i, name:$n}')"
+    if [[ "${4:-}" == "--parent" ]]; then BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$5" '.parent_id=$v')"; fi
+    signed_request POST /api/agent/assets/folders "$BODY"
+    ;;
+
+  # =====================================================================
+  # Project contacts
+  # =====================================================================
+  contact-list)
+    [[ $# -ge 1 ]] || die "usage: contact-list <project_id> [type]"
+    QS="?project_id=${1}"
+    [[ -n "${2:-}" ]] && QS="${QS}&type=${2}"
+    signed_request GET "/api/agent/contacts${QS}" ""
+    ;;
+
+  contact-create)
+    # contact-create <project_id> <name> [--role R] [--company C] [--email E] [--phone P] [--type T] [--user-id ID] [--notes N]
+    [[ $# -ge 2 ]] || die "usage: contact-create <project_id> <name> [--role R] [--company C] [--email E] [--phone P] [--type T] [--user-id ID] [--notes N]"
+    require_numeric "$1" "project_id"
+    BODY="$(jq -nc --argjson p "$1" --arg n "$2" '{project_id:$p, name:$n}')"
+    shift 2
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --role)    BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.role=$v')"; shift 2;;
+        --company) BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.company=$v')"; shift 2;;
+        --email)   BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.email=$v')"; shift 2;;
+        --phone)   BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.phone=$v')"; shift 2;;
+        --type)    BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.type=$v')"; shift 2;;
+        --user-id) BODY="$(printf '%s' "$BODY" | jq -c --argjson v "$2" '.user_id=$v')"; shift 2;;
+        --notes)   BODY="$(printf '%s' "$BODY" | jq -c --arg v "$2" '.notes=$v')"; shift 2;;
+        *) die "unknown flag: $1";;
+      esac
+    done
+    signed_request POST /api/agent/contacts "$BODY"
+    ;;
+
   *)
-    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|vault-list|vault-items|vault-get)"
+    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|vault-list|vault-items|vault-get|asset-list|asset-get|asset-create|asset-version|asset-approve|asset-download|asset-folders|asset-create-folder|contact-list|contact-create)"
     ;;
 esac
