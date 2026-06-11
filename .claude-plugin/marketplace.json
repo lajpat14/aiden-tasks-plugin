@@ -6,9 +6,9 @@
   },
   "plugins": [
     {
-      "name": "aiden-tasks",
+      "name": "aiden-workspace",
       "source": "./",
-      "description": "Create/find/update your AIDEN tasks from Claude via the /aiden-tasks:aiden command + MCP tools (OAuth, no key). Plus /aiden-tasks:aiden-vault for task/project credentials, and /aiden-tasks:aiden-assets to manage project/user/task assets (files, folders, versions, approval) and project contacts. Optional per-branch session auto-logging (needs a per-user key)."
+      "description": "Your AIDEN (clicktrackerx.com) workspace from Claude: tasks, projects, teams, vault, calendar, and assets via the /aiden-workspace:aiden command + MCP tools (OAuth login, no key). Project modules included: Q&A (ask/answer questions across users), roadmap/feature plan (propose, ship, convert to task), RAID log (risks/issues/decisions), and stakeholder status updates. Plus /aiden-workspace:aiden-vault for credentials and /aiden-workspace:aiden-assets for files/folders/versions/approval and project contacts. Optional per-branch session auto-logging (needs a per-user key)."
     }
   ]
 }

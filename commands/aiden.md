@@ -9,12 +9,18 @@ it — pick the one that works in this session:
   `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
   `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
   `aiden-project-get`, `aiden-project-create`, `aiden-project-assign-team`,
+  `aiden-project-info-get`, `aiden-project-info-update`,
   `aiden-user-list`, `aiden-task-assign`, `aiden-team-list`,
   `aiden-team-members`, `aiden-team-create`, `aiden-team-add-member`. These need
   a one-time OAuth login in the browser. (`aiden-project-list` gives minimal
   fields; `aiden-project-get` returns one project's full state — owner, assigned
   team + members, status, progress, task counts. `aiden-team-list` gives counts;
-  `aiden-team-members` lists who is on a team.)
+  `aiden-team-members` lists who is on a team.
+  `aiden-project-info-get` / `aiden-project-info-update` read/set a project's
+  **typed info** — web (website/admin URLs, tech stack), mobile (package name,
+  bundle id, store links), product (SKU, manufacturer, listings), marketing/SEO,
+  or other. Secrets stay in the vault: a secret_ref field holds only a reference
+  name, never the secret itself.)
   Note on "assigning a project": a project's **owner** is one user, set when it's
   created (the creating session's user). `aiden-task-assign` sets per-task
   assignees; `aiden-project-assign-team` assigns the whole project to a team — use
@@ -138,6 +144,27 @@ This repo can be **bound** to one AIDEN project + task via a per-repo file
 - Always confirm back the task id + project + what changed.
 - If no request was given and a binding exists, show the bound task's current
   state; otherwise run the first-run setup, then `aiden-task-list`.
+
+## Project modules (Q&A · Roadmap · RAID · Status updates)
+Each project carries four collaboration modules; use them on the BOUND project
+(`.aiden/task.json` → project.id) unless the user names another:
+- **Q&A** — `aiden-project-qa-list` (read open questions — check this when picking
+  up a project: someone may be waiting on you), `aiden-project-qa-ask` (raise a
+  question for teammates: decisions you can't make, missing context, blockers —
+  the owner is notified), `aiden-project-qa-answer`, `aiden-project-qa-resolve`.
+- **Roadmap / feature plan** — `aiden-project-roadmap` (read the board),
+  `aiden-project-feature-propose` (file future-feature ideas discovered while
+  coding instead of losing them), `aiden-project-feature-status`
+  (proposed|planned|in_progress|shipped|declined), `aiden-project-feature-convert`
+  (turn a feature into a real task, linked back).
+- **RAID log** — `aiden-project-raid` (read), `aiden-project-raid-log` (record a
+  risk with likelihood/impact/mitigation, an issue, an assumption, or a
+  **decision** — log significant technical decisions made during the session),
+  `aiden-project-raid-update` (close/edit).
+- **Status updates** — `aiden-project-status-list` (current health + history),
+  `aiden-project-status-post` (health on_track|at_risk|off_track + summary; the
+  owner/team are notified). A status post at the END of a substantial session is
+  good practice — it becomes the project's health chip on the dashboard.
 
 Notes:
 - `.aiden/task.json` holds only ids/names + base_url — **no secrets**. Safe to read.

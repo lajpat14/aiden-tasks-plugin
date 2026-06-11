@@ -16,16 +16,19 @@
 #   aiden-task-cli.sh projects-list [--include-completed]
 #   aiden-task-cli.sh projects-create <name> [description]
 #   aiden-task-cli.sh tasks-find <query>
-#   aiden-task-cli.sh tasks-create <title> [project_id] [summary]
+#   aiden-task-cli.sh tasks-create <title> [project_id] [summary] [--due YYYY-MM-DD]
 #   aiden-task-cli.sh tasks-update <task_id> [--status S] [--progress N] \
 #                                  [--current "..."] [--next "..."] \
-#                                  [--note "..."] [--project-id ID]
+#                                  [--note "..."] [--project-id ID] \
+#                                  [--due YYYY-MM-DD]   (--due "" clears it)
 #   aiden-task-cli.sh users-list [search]                       # surface org users
 #   aiden-task-cli.sh assign <user_id> --task <id> | --project <id>   # share/assign
 #   aiden-task-cli.sh teams-list
 #   aiden-task-cli.sh team-create <name> [description]
 #   aiden-task-cli.sh team-add-member <team_id> <user_id> [role]
 #   aiden-task-cli.sh project-assign-team <project_id> <team_id|0>
+#   aiden-task-cli.sh project-info-get <project_id>    # typed info (type + fields; no secrets)
+#   aiden-task-cli.sh project-info-update <project_id> [--type T] [--field key=value ...]
 #   aiden-task-cli.sh vault-list                       # accessible vaults (+project_id)
 #   aiden-task-cli.sh vault-items <vault_id>           # masked items (NO secrets)
 #   aiden-task-cli.sh vault-get <item_id>              # DECRYPTED secret (audited)
@@ -140,26 +143,35 @@ case "$CMD" in
     signed_request POST /api/agent/tasks/find "$BODY"
     ;;
   tasks-create)
-    [[ $# -ge 1 && -n "${1:-}" ]] || die "title required: tasks-create <title> [project_id] [summary]"
-    TITLE="$1"; PID="${2:-}"; SUMMARY="${3:-}"
+    [[ $# -ge 1 && -n "${1:-}" ]] || die "title required: tasks-create <title> [project_id] [summary] [--due YYYY-MM-DD]"
+    TITLE="$1"; PID="${2:-}"; SUMMARY="${3:-}"; DUE=""
+    # Optional --due flag may follow the positional args.
+    shift $(( $# < 3 ? $# : 3 ))
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --due) [[ $# -ge 2 ]] || die "--due requires a value"; DUE="$2"; shift 2;;
+        *) die "unknown arg '$1' for tasks-create";;
+      esac
+    done
     [[ -n "$PID" ]] && require_numeric "$PID" "project_id"
-    BODY="$(jq -cn --arg t "$TITLE" --arg s "$SUMMARY" --arg p "$PID" \
+    BODY="$(jq -cn --arg t "$TITLE" --arg s "$SUMMARY" --arg p "$PID" --arg dd "$DUE" \
       '{title:$t}
         + (if $s!="" then {summary:$s} else {} end)
-        + (if $p!="" then {project_id:($p|tonumber)} else {} end)')"
+        + (if $p!="" then {project_id:($p|tonumber)} else {} end)
+        + (if $dd!="" then {due_date:$dd} else {} end)')"
     signed_request POST /api/agent/tasks/create "$BODY"
     ;;
   tasks-update)
     [[ $# -ge 1 && -n "${1:-}" ]] || die "task_id required: tasks-update <task_id> [--status S] [--progress N] [--current ..] [--next ..] [--note ..] [--project-id ID]"
     TID="$1"; shift
     require_numeric "$TID" "task_id"
-    STATUS=""; PROGRESS=""; CURRENT=""; NEXT=""; NOTE=""; PROJECT_ID=""
+    STATUS=""; PROGRESS=""; CURRENT=""; NEXT=""; NOTE=""; PROJECT_ID=""; DUE=""; DUE_SET=0
     # Consume flags one at a time; a flag needs a following value or we die
     # (never blind `shift 2`, which can fail silently and loop forever).
     while [[ $# -gt 0 ]]; do
       flag="$1"; shift
       case "$flag" in
-        --status|--progress|--current|--next|--note|--project-id)
+        --status|--progress|--current|--next|--note|--project-id|--due)
           [[ $# -ge 1 ]] || die "$flag requires a value"
           val="$1"; shift
           case "$flag" in
@@ -169,6 +181,8 @@ case "$CMD" in
             --next)       NEXT="$val";;
             --note)       NOTE="$val";;
             --project-id) PROJECT_ID="$val";;
+            # --due "" clears the date; omitting the flag leaves it unchanged.
+            --due)        DUE="$val"; DUE_SET=1;;
           esac
           ;;
         *) die "unknown flag '$flag' for tasks-update";;
@@ -178,13 +192,15 @@ case "$CMD" in
     [[ -n "$PROJECT_ID" ]] && require_numeric "$PROJECT_ID" "--project-id"
     BODY="$(jq -cn --arg tid "$TID" --arg st "$STATUS" --arg pr "$PROGRESS" \
                    --arg cur "$CURRENT" --arg nx "$NEXT" --arg nt "$NOTE" --arg pid "$PROJECT_ID" \
+                   --arg dd "$DUE" --argjson dset "$DUE_SET" \
       '{task_id:($tid|tonumber)}
         + (if $st!=""  then {status:$st} else {} end)
         + (if $pr!=""  then {progress_percentage:($pr|tonumber)} else {} end)
         + (if $cur!="" then {current_status:$cur} else {} end)
         + (if $nx!=""  then {next_task:$nx} else {} end)
         + (if $nt!=""  then {note:$nt} else {} end)
-        + (if $pid!="" then {project_id:($pid|tonumber)} else {} end)')"
+        + (if $pid!="" then {project_id:($pid|tonumber)} else {} end)
+        + (if $dset==1 then {due_date:$dd} else {} end)')"
     signed_request POST /api/agent/tasks/update "$BODY"
     ;;
 
@@ -260,6 +276,38 @@ case "$CMD" in
     else
       BODY="$(jq -cn --arg t "$TEAM" '{team_id:($t|tonumber)}')"
     fi
+    signed_request PATCH "/api/agent/projects/${PROJ}" "$BODY"
+    ;;
+
+  project-info-get)
+    # project-info-get <project_id> — typed info (type + fields). Secrets are NOT
+    # returned; a secret_ref field only references a vault item. Read via show.
+    [[ $# -ge 1 && -n "${1:-}" ]] || die "project_id required: project-info-get <project_id>"
+    require_numeric "$1" "project_id"
+    signed_request GET "/api/agent/projects/${1}" ""
+    ;;
+
+  project-info-update)
+    # project-info-update <project_id> [--type web|mobile|product|marketing|other] [--field key=value ...]
+    # Sets the project type and/or typed fields. Unknown keys are ignored server-side.
+    # secret_ref fields (e.g. admin_password) take only a vault item REFERENCE name.
+    [[ $# -ge 1 && -n "${1:-}" ]] || die "project_id required: project-info-update <project_id> [--type T] [--field key=value ...]"
+    PROJ="$1"; shift
+    require_numeric "$PROJ" "project_id"
+    TYPE=""; INFO='{}'
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --type)  [[ $# -ge 2 ]] || die "--type requires a value"; TYPE="$2"; shift 2;;
+        --field) [[ $# -ge 2 ]] || die "--field requires key=value"
+                 K="${2%%=*}"; V="${2#*=}"
+                 [[ "$2" == *=* && -n "$K" ]] || die "--field must be key=value, got '$2'"
+                 INFO="$(jq -cn --argjson o "$INFO" --arg k "$K" --arg v "$V" '$o + {($k):$v}')"
+                 shift 2;;
+        *) die "unknown flag '$1' for project-info-update";;
+      esac
+    done
+    BODY="$(jq -cn --argjson info "$INFO" --arg t "$TYPE" \
+      '{info:$info} + (if $t!="" then {type:$t} else {} end)')"
     signed_request PATCH "/api/agent/projects/${PROJ}" "$BODY"
     ;;
 
@@ -438,6 +486,6 @@ case "$CMD" in
     ;;
 
   *)
-    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|vault-list|vault-items|vault-get|asset-list|asset-get|asset-create|asset-version|asset-approve|asset-download|asset-folders|asset-create-folder|contact-list|contact-create)"
+    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|project-info-get|project-info-update|vault-list|vault-items|vault-get|asset-list|asset-get|asset-create|asset-version|asset-approve|asset-download|asset-folders|asset-create-folder|contact-list|contact-create)"
     ;;
 esac

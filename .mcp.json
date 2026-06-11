@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "aiden-tasks": {
+    "aiden-workspace": {
       "type": "http",
-      "url": "https://clicktrackerx.com/mcp/aiden-tasks"
+      "url": "https://clicktrackerx.com/mcp/aiden-workspace"
     }
   }
 }

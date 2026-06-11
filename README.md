@@ -4,15 +4,15 @@ Talk to Claude to create/find/update your AIDEN (clicktrackerx.com) tasks, with
 optional automatic session logging.
 
 ## What it installs
-- **`/aiden-tasks:aiden`** slash command → "create/find/update my tasks". This is
+- **`/aiden-workspace:aiden`** slash command → "create/find/update my tasks". This is
   the main entry point and it works on **every** session type (see auth below).
-- **`/aiden-tasks:aiden-vault`** → pull a task/project credential and apply it safely.
-- **`/aiden-tasks:aiden-assets`** → manage **assets** (files: plans, logos, contracts,
+- **`/aiden-workspace:aiden-vault`** → pull a task/project credential and apply it safely.
+- **`/aiden-workspace:aiden-assets`** → manage **assets** (files: plans, logos, contracts,
   designs — with folders, versions, and an approval workflow) and **contacts**
   (clients, vendors, stakeholders, internal) for a project / user / task.
-- **MCP server** `aiden-tasks` → the `aiden-task-*` / `aiden-project-*` / `aiden-vault-*`
+- **MCP server** `aiden-workspace` → the `aiden-task-*` / `aiden-project-*` / `aiden-vault-*`
   / `aiden-asset-*` / `aiden-contact-*` tools, served at
-  `https://clicktrackerx.com/mcp/aiden-tasks`. **See the auth note below —
+  `https://clicktrackerx.com/mcp/aiden-workspace`. **See the auth note below —
   the OAuth/browser path only works when the server is registered with
   `claude mcp add`, not from the plugin bundle.**
 - **Session hooks** (SessionStart / Stop / SessionEnd) for automatic per-branch
@@ -21,12 +21,12 @@ optional automatic session logging.
 ## Install (one-time)
 ```
 /plugin marketplace add lajpat14/aiden-tasks-plugin
-/plugin install aiden-tasks@aiden
+/plugin install aiden-workspace@aiden
 /reload-plugins
 ```
 > **Updating later:** a `git push` to the marketplace repo does NOT auto-update an
 > installed session. In each session run `/plugin marketplace update aiden` then
-> `/plugin update aiden-tasks@aiden` (or uninstall + reinstall), and **fully restart
+> `/plugin update aiden-workspace@aiden` (or uninstall + reinstall), and **fully restart
 > Claude Code** (`/reload-plugins` reconnects the transport but does not re-pull).
 
 ## Auth — pick the path for your session
@@ -37,9 +37,9 @@ alone. Use one of these instead:
 
 ### A) Local sessions — register the server yourself (browser OAuth works)
 ```
-claude mcp add --transport http aiden-tasks https://clicktrackerx.com/mcp/aiden-tasks
+claude mcp add --transport http aiden-workspace https://clicktrackerx.com/mcp/aiden-workspace
 ```
-Then in a session: `/mcp` → **aiden-tasks** → **Authenticate** → sign in once. The
+Then in a session: `/mcp` → **aiden-workspace** → **Authenticate** → sign in once. The
 tools then list and work. (This is the same URL the plugin points at; registering it
 via `claude mcp add` is what makes Claude Code run the OAuth flow.)
 
@@ -48,12 +48,12 @@ A remote session can't capture the OAuth `localhost` callback, so use the key pa
 1. clicktrackerx.com → **Profile → Security → Claude Session Key → Generate**.
 2. Export in your shell: `AIDEN_AGENT_BASE_URL`, `AIDEN_AGENT_KEY_PREFIX`,
    `AIDEN_AGENT_HMAC_SECRET`.
-3. Run `/aiden-tasks:aiden` — it uses the bundled `scripts/aiden-task-cli.sh`
+3. Run `/aiden-workspace:aiden` — it uses the bundled `scripts/aiden-task-cli.sh`
    (browser-free, HMAC-signed) for project/task list/create/update. The session
    hooks also use this key. **This path needs no MCP tools and works everywhere.**
 
 ## Project/task awareness (per-repo binding)
-Run `/aiden-tasks:aiden` in a repo. The **first time** (no binding yet) it shows
+Run `/aiden-workspace:aiden` in a repo. The **first time** (no binding yet) it shows
 your AIDEN projects and lets you **pick an existing project or create one**, then
 creates/selects a task in it. It records the choice in a per-repo file
 **`.aiden/task.json`** (project + task ids/names — **no secrets**). After that,
@@ -82,7 +82,7 @@ tasks/teams permissions; everything is confined to your organization).
 Pull a credential from your AIDEN vault and apply it to a coding-session job without
 copy-pasting it or leaving it inline.
 
-- **`/aiden-tasks:aiden-vault`** → resolves the bound **project's vault**, lists its
+- **`/aiden-workspace:aiden-vault`** → resolves the bound **project's vault**, lists its
   items (masked — no secrets), reveals the one you need, and applies it safely:
   - **git push** via git's in-memory credential cache (token never in the URL,
     `.git/config`, or reflog);
@@ -110,7 +110,7 @@ files (plans, logos, contracts, designs, PDFs) with **folders**, **versioning**,
 an **approval workflow** (draft → in_review → approved → archived), plus contacts
 (clients, vendors, stakeholders, internal).
 
-- **`/aiden-tasks:aiden-assets`** drives both. `assetable_type` is `project`, `user`,
+- **`/aiden-workspace:aiden-assets`** drives both. `assetable_type` is `project`, `user`,
   or `task`; `assetable_id` is its numeric id.
 - **Assets** — list / get / upload / version / approve / move / delete, and folders:
   - MCP: `aiden-asset-list`, `aiden-asset-get`, `aiden-asset-create`,
@@ -163,7 +163,7 @@ scripts/aiden-vault-cleanup.sh    # SessionEnd: removes ephemeral key files / cr
 commands/aiden.md                 # /aiden slash command (project/task picker)
 commands/aiden-vault.md           # /aiden-vault slash command (fetch + apply a credential)
 commands/aiden-assets.md          # /aiden-assets slash command (assets DAM + project contacts)
-.mcp.json                         # the aiden-tasks MCP connector (OAuth)
+.mcp.json                         # the aiden-workspace MCP connector (OAuth)
 ```
 
 ### `.aiden/task.json` (written in YOUR repo, not this one)
