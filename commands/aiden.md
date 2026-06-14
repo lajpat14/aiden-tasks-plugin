@@ -145,8 +145,8 @@ This repo can be **bound** to one AIDEN project + task via a per-repo file
 - If no request was given and a binding exists, show the bound task's current
   state; otherwise run the first-run setup, then `aiden-task-list`.
 
-## Project modules (Q&A · Roadmap · RAID · Status updates)
-Each project carries four collaboration modules; use them on the BOUND project
+## Project modules (Q&A · Roadmap · RAID · Status updates · Links)
+Each project carries these collaboration modules; use them on the BOUND project
 (`.aiden/task.json` → project.id) unless the user names another:
 - **Q&A** — `aiden-project-qa-list` (read open questions — check this when picking
   up a project: someone may be waiting on you), `aiden-project-qa-ask` (raise a
@@ -165,6 +165,11 @@ Each project carries four collaboration modules; use them on the BOUND project
   `aiden-project-status-post` (health on_track|at_risk|off_track + summary; the
   owner/team are notified). A status post at the END of a substantial session is
   good practice — it becomes the project's health chip on the dashboard.
+- **Links / resources** — `aiden-project-link-list` (find the project's sheets,
+  docs, drive folders, referral sites; check here for the spreadsheet/site you
+  need), `aiden-project-link-add` (save a reference URL to the project —
+  label + url + type sheet|doc|drive_folder|referral_site|reference|other).
+  These are URLs, NOT uploaded files; for files use `/aiden-workspace:aiden-assets`.
 
 Notes:
 - `.aiden/task.json` holds only ids/names + base_url — **no secrets**. Safe to read.
