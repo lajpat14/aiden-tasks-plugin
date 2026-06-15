@@ -8,7 +8,7 @@ it — pick the one that works in this session:
 - **MCP tools** (preferred when available): `aiden-task-list`, `aiden-task-find`,
   `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
   `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
-  `aiden-project-get`, `aiden-project-create`, `aiden-project-update`,
+  `aiden-project-templates`, `aiden-project-get`, `aiden-project-create`, `aiden-project-update`,
   `aiden-project-assign-team`, `aiden-project-share`,
   `aiden-project-info-get`, `aiden-project-info-update`,
   `aiden-user-list`, `aiden-task-assign`, `aiden-team-list`,
@@ -17,6 +17,12 @@ it — pick the one that works in this session:
   fields; `aiden-project-get` returns one project's full state — owner, assigned
   team + members, status, progress, task counts. `aiden-team-list` gives counts;
   `aiden-team-members` lists who is on a team.
+  `aiden-project-templates` lists the curated department template library (one per
+  department: Accounts/Finance, HR, Sales, Operations, Logistics, Manufacturing,
+  IT, Marketing, Support, Design) — pass an optional `department` name to surface
+  its recommended templates first; then pass a chosen template id to
+  `aiden-project-create`'s `template_id` to create a project pre-filled with that
+  template's milestones + tasks (the department's standard workflow).
   `aiden-project-update` edits a project's **core** fields — name/title,
   description, status, priority (integer 1=Low 2=Medium 3=High 4=Urgent),
   color, start/due dates, visibility — i.e. the /tasks/projects/{id}/edit form;
@@ -51,7 +57,8 @@ stop — do not attempt the OAuth flow on a remote session (it cannot complete).
 ```
 SH="${CLAUDE_PLUGIN_ROOT}/scripts/aiden-task-cli.sh"
 "$SH" projects-list [--include-completed]        # -> {data:{projects:[{id,name,status,tasks_count}]}}
-"$SH" projects-create "<name>" "[description]"   # -> {data:{id,name,...}}
+"$SH" projects-templates [--dept "<name>"]       # -> {data:{templates:[{id,name,department_key,milestones}]}}
+"$SH" projects-create "<name>" "[description]" [--template <id>]  # --template pre-fills milestones+tasks
 "$SH" tasks-find "<query>"                        # -> {data:{tasks:[{id,title,...}]}}
 "$SH" tasks-create "<title>" "[project_id]" "[summary]"
 "$SH" tasks-update <task_id> --status in_progress --progress 30 \

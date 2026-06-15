@@ -14,7 +14,8 @@
 #
 # Usage:
 #   aiden-task-cli.sh projects-list [--include-completed]
-#   aiden-task-cli.sh projects-create <name> [description]
+#   aiden-task-cli.sh projects-templates [--dept <name>]
+#   aiden-task-cli.sh projects-create <name> [description] [--template <id>]
 #   aiden-task-cli.sh tasks-find <query>
 #   aiden-task-cli.sh tasks-create <title> [project_id] [summary] [--due YYYY-MM-DD]
 #   aiden-task-cli.sh tasks-update <task_id> [--status S] [--progress N] \
@@ -136,10 +137,32 @@ case "$CMD" in
     code="$(printf '%s' "$resp" | tail -n1)"; printf '%s\n' "$(printf '%s' "$resp" | sed '$d')"
     [[ "$code" =~ ^2 ]] || { echo "HTTP $code" >&2; exit 1; }
     ;;
+  projects-templates)
+    # List the curated department template library. Optional --dept <name> to
+    # recommend a department's templates first. Query not signed (bare path).
+    QS=""; if [[ "${1:-}" == "--dept" && -n "${2:-}" ]]; then QS="?department=$(printf '%s' "$2" | jq -sRr @uri)"; fi
+    ts="$(date +%s)"
+    sig="$(printf '%s' "GET/api/agent/projects/templates${ts}" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}')"
+    resp="$(curl -sS -m 20 -w '\n%{http_code}' -X GET "${BASE_URL%/}/api/agent/projects/templates${QS}" \
+      -H "Accept: application/json" -H "X-Aiden-Key: ${PREFIX}" -H "X-Timestamp: ${ts}" -H "X-Signature: ${sig}")" \
+      || die "request failed (network)"
+    code="$(printf '%s' "$resp" | tail -n1)"; printf '%s\n' "$(printf '%s' "$resp" | sed '$d')"
+    [[ "$code" =~ ^2 ]] || { echo "HTTP $code" >&2; exit 1; }
+    ;;
   projects-create)
-    [[ $# -ge 1 && -n "${1:-}" ]] || die "project name required: projects-create <name> [description]"
-    NAME="$1"; DESC="${2:-}"
-    BODY="$(jq -cn --arg n "$NAME" --arg d "$DESC" '{name:$n} + (if $d!="" then {description:$d} else {} end)')"
+    # projects-create <name> [description] [--template <id>]
+    [[ $# -ge 1 && -n "${1:-}" ]] || die "project name required: projects-create <name> [description] [--template <id>]"
+    NAME="$1"; shift
+    DESC=""; TPL=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --template) [[ $# -ge 2 ]] || die "--template needs an id"; TPL="$2"; shift 2;;
+        *) DESC="$1"; shift;;
+      esac
+    done
+    [[ -n "$TPL" ]] && require_numeric "$TPL" "--template"
+    BODY="$(jq -cn --arg n "$NAME" --arg d "$DESC" --arg t "$TPL" \
+      '{name:$n} + (if $d!="" then {description:$d} else {} end) + (if $t!="" then {template_id:($t|tonumber)} else {} end)')"
     signed_request POST /api/agent/projects "$BODY"
     ;;
   tasks-find)
@@ -567,6 +590,6 @@ case "$CMD" in
     ;;
 
   *)
-    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|project-share|project-unshare|project-info-get|project-info-update|vault-list|vault-items|vault-get|asset-list|asset-get|asset-create|asset-version|asset-approve|asset-download|asset-folders|asset-create-folder|contact-list|contact-create)"
+    die "unknown command: '$CMD' (projects-list|projects-templates|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|project-share|project-unshare|project-info-get|project-info-update|vault-list|vault-items|vault-get|asset-list|asset-get|asset-create|asset-version|asset-approve|asset-download|asset-folders|asset-create-folder|contact-list|contact-create)"
     ;;
 esac

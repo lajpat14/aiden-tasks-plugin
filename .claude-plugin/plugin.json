@@ -1,6 +1,6 @@
 {
   "name": "aiden-workspace",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Your AIDEN (clicktrackerx.com) workspace from Claude: tasks, projects, teams, vault, calendar, and assets via the /aiden-workspace:aiden command + MCP tools (OAuth login, no key). Project modules: Q&A, roadmap/feature plan, RAID log, stakeholder status updates, and links/resources (save sheets, docs, drive folders & referral URLs to a project). Plus /aiden-workspace:aiden-vault for credentials and /aiden-workspace:aiden-assets for files/folders/versions/approval and project contacts. Optional per-branch session auto-logging (needs a per-user key).",
   "author": {
     "name": "AIDEN Platform"
