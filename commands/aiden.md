@@ -9,7 +9,7 @@ it — pick the one that works in this session:
   `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
   `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
   `aiden-project-get`, `aiden-project-create`, `aiden-project-update`,
-  `aiden-project-assign-team`,
+  `aiden-project-assign-team`, `aiden-project-share`,
   `aiden-project-info-get`, `aiden-project-info-update`,
   `aiden-user-list`, `aiden-task-assign`, `aiden-team-list`,
   `aiden-team-members`, `aiden-team-create`, `aiden-team-add-member`. These need
@@ -26,10 +26,13 @@ it — pick the one that works in this session:
   bundle id, store links), product (SKU, manufacturer, listings), marketing/SEO,
   or other. Secrets stay in the vault: a secret_ref field holds only a reference
   name, never the secret itself.)
-  Note on "assigning a project": a project's **owner** is one user, set when it's
-  created (the creating session's user). `aiden-task-assign` sets per-task
-  assignees; `aiden-project-assign-team` assigns the whole project to a team — use
-  that to make a project read as assigned at the project level.
+  Note on "assigning/sharing a project": a project's **owner** is one user, set
+  when it's created (the creating session's user). `aiden-task-assign` sets
+  per-task assignees; `aiden-project-assign-team` assigns the whole project to a
+  team; `aiden-project-share` grants a **specific user or team** direct access
+  (role viewer|editor|admin, or revoke=true) — they can then open the project and
+  its tasks **irrespective of their active org**. Sharing/assigning all make the
+  grantee "connected", which is what controls visibility (not the active org).
 - **Key CLI** (browser-free — REQUIRED on remote sessions): the OAuth login uses a
   `http://localhost:.../callback` redirect that a **remote session can't capture**,
   so the MCP tools never finish auth there. In that case use the bundled script
@@ -60,6 +63,9 @@ SH="${CLAUDE_PLUGIN_ROOT}/scripts/aiden-task-cli.sh"
 "$SH" team-create "<name>" "[description]"
 "$SH" team-add-member <team_id> <user_id> [role]  # role: member|lead|manager
 "$SH" project-assign-team <project_id> <team_id>  # team_id 0 to unassign
+"$SH" project-share <project_id> --user <id> [--role viewer|editor|admin]   # grant access
+"$SH" project-share <project_id> --team <id> [--role ...]                   # grant a team
+"$SH" project-unshare <project_id> --user <id> | --team <id>                # revoke
 ```
 Use these in place of the matching `aiden-*` MCP tool wherever the steps below say
 to call one. (There is no CLI equivalent of `aiden-task-by-branch`; on the CLI
@@ -70,8 +76,14 @@ When the user says "share <project/task> with <name>" or "assign … to <name>":
 1. Resolve the name → call `aiden-user-list` / `users-list "<name>"`.
 2. If 0 matches, tell the user; if >1, **list them and ask which** — never guess.
 3. **Confirm the chosen user** (name + email) with the human before assigning.
-4. Assign: `aiden-task-assign` (MCP) / `assign <user_id> --task|--project` (CLI).
-5. Report back who was assigned to what. (The assignee sees it in their My Work +
+4. Pick the action:
+   - **task** → `aiden-task-assign` (MCP) / `assign <user_id> --task <id>` (CLI).
+   - **project** → either `aiden-project-share` (MCP) / `project-share <id> --user <uid> [--role …]`
+     (CLI) to grant direct access (default `viewer`; the grantee can open it
+     irrespective of their active org), or `assign <user_id> --project <id>` to
+     assign every open task. Sharing a project is gated to people who can manage
+     it, and you can't grant a role higher than your own.
+5. Report back who was granted/assigned what. (They see it in their My Work +
    activity; external Slack/WhatsApp/Email pings are not sent by this command.)
 
 ### Teams

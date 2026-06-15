@@ -30,6 +30,8 @@
 #                                  [--status S] [--priority 1-4] [--color #RRGGBB] \
 #                                  [--start-date YYYY-MM-DD] [--due-date YYYY-MM-DD] [--visibility V]
 #   aiden-task-cli.sh project-assign-team <project_id> <team_id|0>
+#   aiden-task-cli.sh project-share <project_id> --user <id>|--team <id> [--role viewer|editor|admin]
+#   aiden-task-cli.sh project-unshare <project_id> --user <id>|--team <id>
 #   aiden-task-cli.sh project-info-get <project_id>    # typed info (type + fields; no secrets)
 #   aiden-task-cli.sh project-info-update <project_id> [--type T] [--field key=value ...]
 #   aiden-task-cli.sh vault-list                       # accessible vaults (+project_id)
@@ -282,6 +284,55 @@ case "$CMD" in
     signed_request PATCH "/api/agent/projects/${PROJ}" "$BODY"
     ;;
 
+  project-share)
+    # project-share <project_id> (--user <id> | --team <id>) [--role viewer|editor|admin]
+    [[ $# -ge 1 ]] || die "usage: project-share <project_id> --user <id>|--team <id> [--role viewer|editor|admin]"
+    PROJ="$1"; shift; require_numeric "$PROJ" "project_id"
+    GUID=""; GTID=""; ROLE=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --user) [[ $# -ge 2 ]] || die "--user needs a value"; GUID="$2"; shift 2;;
+        --team) [[ $# -ge 2 ]] || die "--team needs a value"; GTID="$2"; shift 2;;
+        --role) [[ $# -ge 2 ]] || die "--role needs a value"; ROLE="$2"; shift 2;;
+        *) die "unknown flag '$1' for project-share";;
+      esac
+    done
+    [[ -n "$GUID" ]] && require_numeric "$GUID" "--user"
+    [[ -n "$GTID" ]] && require_numeric "$GTID" "--team"
+    [[ -n "$GUID" && -n "$GTID" ]] && die "provide only one of --user or --team"
+    [[ -n "$GUID" || -n "$GTID" ]] || die "provide --user <id> or --team <id>"
+    if [[ -n "$GUID" ]]; then
+      BODY="$(jq -cn --arg id "$GUID" --arg r "$ROLE" '{grantee_type:"user",grantee_id:($id|tonumber)} + (if $r!="" then {role:$r} else {} end)')"
+    else
+      BODY="$(jq -cn --arg id "$GTID" --arg r "$ROLE" '{grantee_type:"team",grantee_id:($id|tonumber)} + (if $r!="" then {role:$r} else {} end)')"
+    fi
+    signed_request POST "/api/agent/projects/${PROJ}/members" "$BODY"
+    ;;
+
+  project-unshare)
+    # project-unshare <project_id> (--user <id> | --team <id>)
+    [[ $# -ge 1 ]] || die "usage: project-unshare <project_id> --user <id>|--team <id>"
+    PROJ="$1"; shift; require_numeric "$PROJ" "project_id"
+    GUID=""; GTID=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --user) [[ $# -ge 2 ]] || die "--user needs a value"; GUID="$2"; shift 2;;
+        --team) [[ $# -ge 2 ]] || die "--team needs a value"; GTID="$2"; shift 2;;
+        *) die "unknown flag '$1' for project-unshare";;
+      esac
+    done
+    [[ -n "$GUID" ]] && require_numeric "$GUID" "--user"
+    [[ -n "$GTID" ]] && require_numeric "$GTID" "--team"
+    [[ -n "$GUID" && -n "$GTID" ]] && die "provide only one of --user or --team"
+    [[ -n "$GUID" || -n "$GTID" ]] || die "provide --user <id> or --team <id>"
+    if [[ -n "$GUID" ]]; then
+      BODY="$(jq -cn --arg id "$GUID" '{grantee_type:"user",grantee_id:($id|tonumber)}')"
+    else
+      BODY="$(jq -cn --arg id "$GTID" '{grantee_type:"team",grantee_id:($id|tonumber)}')"
+    fi
+    signed_request DELETE "/api/agent/projects/${PROJ}/members" "$BODY"
+    ;;
+
   project-update)
     # project-update <project_id> [--name "..."] [--description "..."] [--status S]
     #   [--priority 1|2|3|4] [--color #RRGGBB] [--start-date YYYY-MM-DD] [--due-date YYYY-MM-DD]
@@ -516,6 +567,6 @@ case "$CMD" in
     ;;
 
   *)
-    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|project-info-get|project-info-update|vault-list|vault-items|vault-get|asset-list|asset-get|asset-create|asset-version|asset-approve|asset-download|asset-folders|asset-create-folder|contact-list|contact-create)"
+    die "unknown command: '$CMD' (projects-list|projects-create|tasks-find|tasks-create|tasks-update|users-list|assign|teams-list|team-create|team-add-member|project-assign-team|project-share|project-unshare|project-info-get|project-info-update|vault-list|vault-items|vault-get|asset-list|asset-get|asset-create|asset-version|asset-approve|asset-download|asset-folders|asset-create-folder|contact-list|contact-create)"
     ;;
 esac

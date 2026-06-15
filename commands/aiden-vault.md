@@ -35,6 +35,11 @@ Request: $ARGUMENTS
   - `"$SH" vault-get <item_id>`    → `{success,data:{id,type,name,url,host,username,secret_fields,notes}}`
   - Needs `AIDEN_AGENT_BASE_URL` / `AIDEN_AGENT_KEY_PREFIX` / `AIDEN_AGENT_HMAC_SECRET`
     (generate at clicktrackerx.com → Profile → Security → Claude Session Key).
+- To WRITE a credential (interactive/MCP only — the CLI stays read-only for safety), use
+  `aiden-vault-create-item` (new item) or `aiden-vault-update-item` (edit an existing one;
+  partial — omitted fields, incl. `secret_fields`, keep their current value). Both need
+  editor access to the vault and re-encrypt secrets server-side. Feed secret values from a
+  secure source, never from chat or shell history.
 - If neither the MCP tools nor the `AIDEN_AGENT_*` env vars are present, **stop** and tell
   the user to set the key — do not attempt the OAuth flow on a remote session.
 
