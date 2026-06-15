@@ -8,7 +8,8 @@ it — pick the one that works in this session:
 - **MCP tools** (preferred when available): `aiden-task-list`, `aiden-task-find`,
   `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
   `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
-  `aiden-project-get`, `aiden-project-create`, `aiden-project-assign-team`,
+  `aiden-project-get`, `aiden-project-create`, `aiden-project-update`,
+  `aiden-project-assign-team`,
   `aiden-project-info-get`, `aiden-project-info-update`,
   `aiden-user-list`, `aiden-task-assign`, `aiden-team-list`,
   `aiden-team-members`, `aiden-team-create`, `aiden-team-add-member`. These need
@@ -16,6 +17,10 @@ it — pick the one that works in this session:
   fields; `aiden-project-get` returns one project's full state — owner, assigned
   team + members, status, progress, task counts. `aiden-team-list` gives counts;
   `aiden-team-members` lists who is on a team.
+  `aiden-project-update` edits a project's **core** fields — name/title,
+  description, status, priority (integer 1=Low 2=Medium 3=High 4=Urgent),
+  color, start/due dates, visibility — i.e. the /tasks/projects/{id}/edit form;
+  only the fields you pass change.
   `aiden-project-info-get` / `aiden-project-info-update` read/set a project's
   **typed info** — web (website/admin URLs, tech stack), mobile (package name,
   bundle id, store links), product (SKU, manufacturer, listings), marketing/SEO,

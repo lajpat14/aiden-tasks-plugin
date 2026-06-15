@@ -26,6 +26,9 @@
 #   aiden-task-cli.sh teams-list
 #   aiden-task-cli.sh team-create <name> [description]
 #   aiden-task-cli.sh team-add-member <team_id> <user_id> [role]
+#   aiden-task-cli.sh project-update <project_id> [--name "..."] [--description "..."] \
+#                                  [--status S] [--priority 1-4] [--color #RRGGBB] \
+#                                  [--start-date YYYY-MM-DD] [--due-date YYYY-MM-DD] [--visibility V]
 #   aiden-task-cli.sh project-assign-team <project_id> <team_id|0>
 #   aiden-task-cli.sh project-info-get <project_id>    # typed info (type + fields; no secrets)
 #   aiden-task-cli.sh project-info-update <project_id> [--type T] [--field key=value ...]
@@ -276,6 +279,33 @@ case "$CMD" in
     else
       BODY="$(jq -cn --arg t "$TEAM" '{team_id:($t|tonumber)}')"
     fi
+    signed_request PATCH "/api/agent/projects/${PROJ}" "$BODY"
+    ;;
+
+  project-update)
+    # project-update <project_id> [--name "..."] [--description "..."] [--status S]
+    #   [--priority 1|2|3|4] [--color #RRGGBB] [--start-date YYYY-MM-DD] [--due-date YYYY-MM-DD]
+    #   [--visibility organization|department|team|private]
+    # Updates a project's core fields (the /tasks/projects/{id}/edit form fields).
+    # priority is an INTEGER on projects: 1=Low 2=Medium 3=High 4=Urgent.
+    [[ $# -ge 1 && -n "${1:-}" ]] || die "project_id required: project-update <project_id> [--name ..] [--status ..] [--priority 1-4] ..."
+    PROJ="$1"; shift
+    require_numeric "$PROJ" "project_id"
+    BODY='{}'
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --name)        [[ $# -ge 2 ]] || die "--name requires a value";        BODY="$(jq -cn --argjson o "$BODY" --arg v "$2" '$o + {name:$v}')"; shift 2;;
+        --description) [[ $# -ge 2 ]] || die "--description requires a value"; BODY="$(jq -cn --argjson o "$BODY" --arg v "$2" '$o + {description:$v}')"; shift 2;;
+        --status)      [[ $# -ge 2 ]] || die "--status requires a value";      BODY="$(jq -cn --argjson o "$BODY" --arg v "$2" '$o + {status:$v}')"; shift 2;;
+        --priority)    [[ $# -ge 2 ]] || die "--priority requires 1-4"; require_numeric "$2" "priority"; BODY="$(jq -cn --argjson o "$BODY" --arg v "$2" '$o + {priority:($v|tonumber)}')"; shift 2;;
+        --color)       [[ $# -ge 2 ]] || die "--color requires #RRGGBB";       BODY="$(jq -cn --argjson o "$BODY" --arg v "$2" '$o + {color:$v}')"; shift 2;;
+        --start-date)  [[ $# -ge 2 ]] || die "--start-date requires YYYY-MM-DD"; BODY="$(jq -cn --argjson o "$BODY" --arg v "$2" '$o + {start_date:$v}')"; shift 2;;
+        --due-date)    [[ $# -ge 2 ]] || die "--due-date requires YYYY-MM-DD";  BODY="$(jq -cn --argjson o "$BODY" --arg v "$2" '$o + {due_date:$v}')"; shift 2;;
+        --visibility)  [[ $# -ge 2 ]] || die "--visibility requires a value";  BODY="$(jq -cn --argjson o "$BODY" --arg v "$2" '$o + {visibility:$v}')"; shift 2;;
+        *) die "unknown flag '$1' for project-update";;
+      esac
+    done
+    [[ "$BODY" != "{}" ]] || die "nothing to update — pass at least one field flag"
     signed_request PATCH "/api/agent/projects/${PROJ}" "$BODY"
     ;;
 
