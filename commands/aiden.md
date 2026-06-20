@@ -7,7 +7,10 @@ it — pick the one that works in this session:
 
 - **MCP tools** (preferred when available): `aiden-task-list`, `aiden-task-find`,
   `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
-  `aiden-task-status`, `aiden-session-link`, `aiden-project-list`,
+  `aiden-task-status`, `aiden-task-detail`, `aiden-task-list-advanced`,
+  `aiden-task-comment`, `aiden-task-watch`, `aiden-task-archive` (destructive —
+  pass `confirm:true`), `aiden-task-report` (`kind` = my_work | team | org |
+  attention | trend | overdue | workload), `aiden-session-link`, `aiden-project-list`,
   `aiden-project-templates`, `aiden-project-get`, `aiden-project-create`, `aiden-project-update`,
   `aiden-project-assign-team`, `aiden-project-share`,
   `aiden-project-info-get`, `aiden-project-info-update`,
