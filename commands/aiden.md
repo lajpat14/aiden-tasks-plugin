@@ -15,7 +15,10 @@ it — pick the one that works in this session:
   `aiden-project-assign-team`, `aiden-project-share`,
   `aiden-project-info-get`, `aiden-project-info-update`,
   `aiden-user-list`, `aiden-task-assign`, `aiden-team-list`,
-  `aiden-team-members`, `aiden-team-create`, `aiden-team-add-member`. These need
+  `aiden-team-members`, `aiden-team-create`, `aiden-team-add-member`,
+  `aiden-user-create` (PLATFORM OWNERS — make a new user; temp password),
+  `aiden-user-set-global-assignee` (PLATFORM OWNERS — grant/revoke the cross-org
+  Global Task Assignee role). These need
   a one-time OAuth login in the browser. (`aiden-project-list` gives minimal
   fields; `aiden-project-get` returns one project's full state — owner, assigned
   team + members, status, progress, task counts. `aiden-team-list` gives counts;
