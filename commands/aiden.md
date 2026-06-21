@@ -6,7 +6,11 @@ You manage the user's tasks in the AIDEN task system. There are TWO ways to call
 it — pick the one that works in this session:
 
 - **MCP tools** (preferred when available): `aiden-task-list`, `aiden-task-find`,
-  `aiden-task-by-branch`, `aiden-task-create`, `aiden-task-update`,
+  `aiden-task-by-branch`, `aiden-task-create` (pass `organization_ids` to create
+  one copy per org — for statutory/compliance tasks that recur across orgs),
+  `aiden-task-make-recurring` (turn an existing task into a recurring schedule;
+  optional `all_orgs` to replicate across every org you belong to),
+  `aiden-task-update`,
   `aiden-task-status`, `aiden-task-detail`, `aiden-task-list-advanced`,
   `aiden-task-comment`, `aiden-task-watch`, `aiden-task-archive` (destructive —
   pass `confirm:true`), `aiden-task-report` (`kind` = my_work | team | org |
