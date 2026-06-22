@@ -10,6 +10,10 @@ it — pick the one that works in this session:
   one copy per org — for statutory/compliance tasks that recur across orgs),
   `aiden-task-make-recurring` (turn an existing task into a recurring schedule;
   optional `all_orgs` to replicate across every org you belong to),
+  `aiden-task-apply-workflow` (apply a workflow template — Department → Task Type
+  → Template, e.g. Vendor Invoice Approval or Hiring Pipeline — to materialise
+  ordered steps; add participants by role first), `aiden-task-workflow-step`
+  (complete / approve / reject / request-changes on a step),
   `aiden-task-update`,
   `aiden-task-status`, `aiden-task-detail`, `aiden-task-list-advanced`,
   `aiden-task-comment`, `aiden-task-watch`, `aiden-task-archive` (destructive —
