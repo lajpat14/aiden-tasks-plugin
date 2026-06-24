@@ -13,7 +13,13 @@ it — pick the one that works in this session:
   `aiden-task-apply-workflow` (apply a workflow template — Department → Task Type
   → Template, e.g. Vendor Invoice Approval or Hiring Pipeline — to materialise
   ordered steps; add participants by role first), `aiden-task-workflow-step`
-  (complete / approve / reject / request-changes on a step),
+  (complete / approve / reject / request-changes / **escalate** on a step —
+  escalate sends botched work UP to a higher authority for redo, never back to the
+  original worker; needs the escalate permission),
+  `aiden-task-group-list` and `aiden-task-group-create` (Project → Group → Period →
+  Task: bucket recurring/compliance work like GST/TDS/ITR into groups with dated
+  periods; pass `task_group_id` / `task_group_period_id` to `aiden-task-create` to
+  file a task into a bucket),
   `aiden-task-update`,
   `aiden-task-status`, `aiden-task-detail`, `aiden-task-list-advanced`,
   `aiden-task-comment`, `aiden-task-watch`, `aiden-task-archive` (destructive —

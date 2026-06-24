@@ -78,6 +78,27 @@ From chat you can also surface org users and assign/share work, and manage teams
 All org-scoped and permission-checked server-side (you need the relevant
 tasks/teams permissions; everything is confined to your organization).
 
+## Groups & periods — recurring/compliance buckets (optional)
+Projects can organise tasks into a **Project → Group → Period → Task** hierarchy.
+A **Group** buckets recurring or compliance work (e.g. **GST**, **TDS**, **ITR**);
+a recurring group (monthly / quarterly / half-yearly / annual) auto-seeds dated
+**Periods** (e.g. "May 2026", "June 2026") and a daily job rolls the next period and
+carries unfinished tasks forward.
+- **List** a project's groups + periods: `aiden-task-group-list` (or chat
+  `tasks.group-list`). Returns the group + period ids.
+- **Create** a group: `aiden-task-group-create` (or `tasks.group-create`) with a
+  `recurrence` and optional first `period_label`.
+- **File a task into a bucket:** pass `task_group_id` (and optionally
+  `task_group_period_id`) to `aiden-task-create`. The binding is IDOR-checked
+  server-side — the group must belong to the task's project/org.
+
+## Workflow review — maker-checker with escalate-up
+Approval steps on a task can be decided with `aiden-task-workflow-step` (chat
+`tasks.workflow-step`), action one of **approve / reject / changes / escalate**.
+**escalate** sends botched work **UP** to a higher authority (manager → senior →
+task creator) for redo — **never back to the original worker** (four-eyes /
+segregation of duties). It needs the `tasks.tasks.escalate` permission and a reason.
+
 ## Vault — task/project credentials (optional)
 Pull a credential from your AIDEN vault and apply it to a coding-session job without
 copy-pasting it or leaving it inline.
