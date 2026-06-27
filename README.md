@@ -99,6 +99,27 @@ Approval steps on a task can be decided with `aiden-task-workflow-step` (chat
 task creator) for redo — **never back to the original worker** (four-eyes /
 segregation of duties). It needs the `tasks.tasks.escalate` permission and a reason.
 
+## Comments & @mentions — pull a specific person into a task
+Comment on a task with `aiden-task-comment` (chat `tasks.comment`). To **@mention**
+someone — they get notified (in-app + email) and start watching the task — either:
+- write `@Name` in the comment text, or
+- pass **`mention_ids`** (exact user ids) and/or **`mention_names`** (names/emails).
+
+Candidates are scoped to who *you* are: a platform owner can mention anyone in any
+org, an org owner/member their orgs, a regular member the task's org + global
+assignees + existing participants. Forged/out-of-scope ids are dropped. Use
+`aiden-user-list` to look up ids.
+
+## Ad-invoice handoff — Meta/Google invoices (marketer ↔ accounts)
+`aiden-task-ad-invoice` (chat `tasks.ad-invoice`) drives the two-sided invoice
+handoff on a task: set the billing **period** + **platforms** (facebook/google),
+record invoice **line items** (account, invoice #, amount, currency), and run the
+handshake — **`mark: "uploaded"`** when the marketer hands invoices over (task →
+review), **`mark: "downloaded"`** when accounts has received & reconciled them
+(task → completed). Invoice **PDF files are uploaded in the web UI only**; the tool
+records the structured metadata + the marks. Pairs with the "Ad Invoice Collection"
+project template and the monthly recurring config.
+
 ## Vault — task/project credentials (optional)
 Pull a credential from your AIDEN vault and apply it to a coding-session job without
 copy-pasting it or leaving it inline.
